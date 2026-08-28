@@ -225,3 +225,106 @@ document.addEventListener('DOMContentLoaded',()=>{
   else if(page==='student.html')initStudent();
   else initPublicPages();
 });
+
+// Dedicated Google Sheets Authentication API for APEX Physics Society Website
+const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHBedOuksuHSVzd_FZgBRIoFtO6UyKpYZcG9JV0KrUJJgUNInTV4j6kKuuvIfl8oq_/exec";
+
+/**
+ * 1. Computes client-side SHA-256 hash for secure password transmission
+ * @param {string} password - Raw password string from input
+ * @returns {Promise<string>} Hex-encoded SHA-256 hash
+ */
+async function hashPassword(password) {
+  const msgUint8 = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * 2. Authenticates user against Google Sheets DB and redirects based on assigned role
+ * @param {string} email - User email address
+ * @param {string} password - User password
+ */
+async function executeDatabaseLogin(email, password) {
+  const submitBtn = document.querySelector('button[type="submit"]');
+  const originalBtnText = submitBtn ? submitBtn.innerText : '';
+
+  try {
+    if (submitBtn) {
+      submitBtn.innerText = 'Authenticating...';
+      submitBtn.disabled = true;
+    }
+
+    const hashedPassword = await hashPassword(password);
+    
+    // Send POST payload to Google Apps Script Web App
+    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        email: email,
+        passwordHash: hashedPassword
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      // Store user session info in browser localStorage
+      localStorage.setItem('userRole', result.role);
+      localStorage.setItem('userName', result.name);
+      localStorage.setItem('userEmail', result.email);
+
+      alert(`Welcome, ${result.name}! Logged in as [${result.role.toUpperCase()}]`);
+
+      // Redirect to the appropriate HTML page in your repository based on role
+      if (result.role === 'admin') {
+        window.location.href = 'admin.html';
+      } else if (result.role === 'student') {
+        window.location.href = 'student.html';
+      } else {
+        window.location.href = 'member.html';
+      }
+
+    } else {
+      alert(`Authentication Failed: ${result.message}`);
+    }
+  } catch (error) {
+    console.error('Login request failed:', error);
+    alert('Failed to connect to authentication server. Check network connection.');
+  } finally {
+    if (submitBtn) {
+      submitBtn.innerText = originalBtnText;
+      submitBtn.disabled = false;
+    }
+  }
+}
+
+/**
+ * 3. Form submission event listener for login.html
+ */
+function handleLoginSubmit(event) {
+  event.preventDefault();
+  
+  const emailInput = document.getElementById('emailInput') || document.querySelector('input[type="email"]');
+  const passwordInput = document.getElementById('passwordInput') || document.querySelector('input[type="password"]');
+
+  if (!emailInput || !passwordInput) {
+    alert('Error: Email or password input fields not found on this page.');
+    return;
+  }
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+
+  executeDatabaseLogin(email, password);
+}
+
+// Automatically attach listener to login form if present on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const loginForm = document.getElementById('loginForm') || document.querySelector('form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleLoginSubmit);
+  }
+});
