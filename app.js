@@ -120,6 +120,10 @@ function initLogin() {
       
       const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
+        redirect: 'follow', // Add this
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8' // Add this to bypass CORS preflight
+        },
         body: JSON.stringify({ action: 'login', email: email, passwordHash: passwordHash, requestedRole: requestedRole })
       });
       
@@ -171,6 +175,10 @@ function initAdmin() {
 
       const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
+        redirect: 'follow', // Add this
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8' // Add this
+        },
         body: JSON.stringify({ action: 'authorize', email: email, role: role, name: name })
       });
       
