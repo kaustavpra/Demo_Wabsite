@@ -1,1 +1,77 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Colloquium | Presidency University Physics Society</title><link rel="stylesheet" href="styles.css"></head><body><header class="site-header"><a class="brand" href="index.html"><span class="brand-mark">Ψ</span><span><strong>PUPS</strong><small>PRESIDENCY UNIVERSITY</small></span></a><button class="menu-toggle" id="menuToggle">☰</button><nav id="mainNav" class="main-nav"><a href="index.html">Home</a><a href="about.html">About</a><a href="events.html">Events</a><a class="active" href="colloquium.html">Colloquium</a><a href="team.html">Team</a><a href="contact.html">Contact</a><a class="login-link" href="login.html">Login</a></nav></header><main><section class="page-hero"><p class="eyebrow">COLLOQUIUM</p><h1>Talks that become<br>part of the archive.</h1><p>Browse research conversations, speakers and academic themes. New entries are managed by authenticated members or administrators.</p></section><div class="content-wrap"><div class="toolbar"><input class="search" id="colloquiaSearch" placeholder="Search titles, speakers, fields..."><select class="search" id="colloquiaField"><option value="all">All fields</option><option>Astrophysics</option><option>Optics</option><option>Condensed Matter</option></select></div><div id="colloquiaGrid" class="card-grid"></div></div></main><footer><div><strong>Presidency University Physics Society</strong><span>Academic archive</span></div><div>© 2026</div></footer><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colloquium | Presidency University Physics Society</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Accessible Skip Link -->
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <!-- ========== SITE HEADER ========== -->
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Presidency University Physics Society Home">
+      <span class="brand-mark" aria-hidden="true">Ψ</span>
+      <span>
+        <strong>PUPS</strong>
+        <small>PRESIDENCY UNIVERSITY</small>
+      </span>
+    </a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="events.html">Events</a>
+      <a class="active" href="colloquium.html">Colloquium</a>
+      <a href="team.html">Team</a>
+      <a href="contact.html">Contact</a>
+      <a class="login-link" href="login.html">Login</a>
+    </nav>
+  </header>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main id="mainContent">
+    <section class="page-hero">
+      <p class="eyebrow">COLLOQUIUM</p>
+      <h1>Talks that become<br>part of the archive.</h1>
+      <p>Browse research conversations, speakers, and academic themes. New entries are managed by authenticated members or administrators.</p>
+    </section>
+
+    <div class="content-wrap">
+      <div class="toolbar" role="search" aria-label="Colloquia search and filter">
+        <input
+          class="search"
+          id="colloquiaSearch"
+          type="search"
+          placeholder="Search titles, speakers, fields..."
+          aria-label="Search colloquia by title, speaker, or field">
+        <select
+          class="search"
+          id="colloquiaField"
+          aria-label="Filter colloquia by academic field">
+          <option value="all">All fields</option>
+          <option value="Astrophysics">Astrophysics</option>
+          <option value="Optics">Optics</option>
+          <option value="Condensed Matter">Condensed Matter</option>
+        </select>
+      </div>
+
+      <div id="colloquiaGrid" class="card-grid" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <!-- ========== SITE FOOTER ========== -->
+  <footer>
+    <div>
+      <strong>Presidency University Physics Society</strong>
+      <span>Academic archive</span>
+    </div>
+    <div>© 2026 Presidency University</div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,70 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login | Presidency University Physics Society</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+  <!-- Accessible Skip Link -->
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <!-- ========== SITE HEADER ========== -->
   <header class="site-header">
-    <a class="brand" href="index.html">
-      <span class="brand-mark">Ψ</span>
-      <span><strong>PUPS</strong><small>PHYSICS SOCIETY</small></span>
+    <a class="brand" href="index.html" aria-label="Presidency University Physics Society Home">
+      <span class="brand-mark" aria-hidden="true">Ψ</span>
+      <span>
+        <strong>PUPS</strong>
+        <small>PHYSICS SOCIETY</small>
+      </span>
     </a>
     <a class="btn ghost" href="index.html">← Back home</a>
   </header>
-  
-  <main class="auth-shell">
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main id="mainContent" class="auth-shell">
     <div class="auth-card">
-      <section class="role-side">
+
+      <!-- Role Selector Sidebar -->
+      <section class="role-side" aria-labelledby="roleSideHeading">
         <p class="eyebrow">ACCESS PORTAL</p>
-        <h1>Choose<br>your room.</h1>
+        <h1 id="roleSideHeading">Choose<br>your room.</h1>
         <p>The public website is open to everyone. Authenticated areas are deliberately separated by responsibility.</p>
-        
-        <div class="role-list">
-          <button class="role-option" data-role="student">
+
+        <div class="role-list" role="radiogroup" aria-label="Select login role">
+          <button class="role-option" data-role="student" role="radio" aria-checked="true">
             <strong>01 · Students</strong><br>
             <span>Academic/student portal only</span>
           </button>
-          <button class="role-option" data-role="member">
+          <button class="role-option" data-role="member" role="radio" aria-checked="false">
             <strong>02 · Members</strong><br>
             <span>Manage events, colloquia and academic data</span>
           </button>
-          <button class="role-option" data-role="admin">
+          <button class="role-option" data-role="admin" role="radio" aria-checked="false">
             <strong>03 · Admin</strong><br>
             <span>Full website, authorization and security control</span>
           </button>
         </div>
       </section>
-      
-      <section class="login-pane">
-        <p class="selected-role" id="selectedRole">Student</p>
-        <h2>Sign in</h2>
+
+      <!-- Sign In Form Pane -->
+      <section class="login-pane" aria-labelledby="signInHeading">
+        <p class="selected-role" id="selectedRole" aria-live="polite">Student</p>
+        <h2 id="signInHeading">Sign in</h2>
         <p id="loginRoleNote" class="login-help"></p>
-        
-        <form id="loginForm">
+
+        <form id="loginForm" novalidate>
           <div class="field">
-            <label>Email or ID</label>
-            <input type="email" id="emailInput" placeholder="you@example.org" autocomplete="username" required>
+            <label for="emailInput">Institutional Email or ID</label>
+            <input
+              type="email"
+              id="emailInput"
+              placeholder="you@presiuniv.ac.in"
+              autocomplete="username"
+              required>
           </div>
+
           <div class="field">
-            <label>Password</label>
-            <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" required>
+            <label for="passwordInput">Password</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input
+                type="password"
+                id="passwordInput"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+                style="width: 100%; padding-right: 40px;">
+              <button
+                type="button"
+                id="passwordToggleBtn"
+                style="position: absolute; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 16px;"
+                aria-label="Toggle password visibility"
+                title="Press and hold to view password">👁️</button>
+            </div>
           </div>
-          <label class="remember">
-            <input id="rememberMe" type="checkbox"> 
+
+          <label class="remember" for="rememberMe">
+            <input id="rememberMe" type="checkbox">
             <span>Remember me on this device</span>
           </label>
-          <button class="btn primary" type="submit">Continue →</button>
+
+          <button class="btn primary" type="submit" style="width:100%; justify-content:center;">
+            Continue →
+          </button>
         </form>
-        
-        <p class="login-help">This front-end build demonstrates the portal structure. Real authentication should be connected to a secure backend, hashed passwords, sessions/tokens and server-side authorization.</p>
-        <div id="loginError" class="danger"></div>
+
+        <p class="login-help" style="margin-top:16px;">
+          Credentials are cryptographically hashed via SHA-256 before verification against the Google Apps Script backend and spreadsheet database.
+        </p>
+
+        <div id="loginError" class="danger" role="alert" aria-live="assertive"></div>
       </section>
+
     </div>
   </main>
-  
+
   <script src="app.js"></script>
 </body>
 </html>

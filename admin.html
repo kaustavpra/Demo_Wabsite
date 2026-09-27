@@ -1,1 +1,359 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Control Centre | Presidency University Physics Society</title><link rel="stylesheet" href="styles.css"></head><body><header class="site-header"><a class="brand" href="index.html"><span class="brand-mark">Ψ</span><span><strong>PUPS</strong><small>ADMIN CONTROL CENTRE</small></span></a><button class="menu-toggle" id="menuToggle">☰</button><nav id="mainNav" class="main-nav"><a href="index.html">Public site</a><a href="events.html">Events</a><a href="colloquium.html">Colloquium</a><a class="login-link" href="javascript:logout()">Logout</a></nav></header><main class="dashboard-shell"><div class="dashboard-head"><div><p class="eyebrow">SYSTEM CONTROL</p><h1>Administrator</h1><p>Full access across website content, authorization and security controls.</p></div><span class="role-badge">Admin · Full access</span></div><div id="adminStats" class="dash-grid"></div><div class="manage-grid"><section class="panel"><p class="kicker">Authorization</p><h2>Add or control authorized users</h2><form id="authForm"><div class="form-grid"><div class="field"><label>Name</label><input id="authName" required></div><div class="field"><label>Role</label><select id="authRole"><option>Member</option><option>Academic Coordinator</option><option>Administrator</option></select></div><div class="field full"><label>Email / ID</label><input id="authEmail" type="email" required></div><div class="field full"><button class="btn primary">Authorize account</button></div></div></form><div class="manage-list"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody id="memberAuthTable"></tbody></table></div></section><section class="panel"><p class="kicker">Security</p><h2>Security policy</h2><form id="securityForm"><div class="field"><label><input id="sec2fa" type="checkbox"> Require two-factor authentication</label></div><div class="field"><label><input id="secAlerts" type="checkbox"> Login alerts</label></div><div class="field"><label>Session duration (hours)</label><input id="sessionHours" type="number" min="1" max="72"></div><button class="btn primary">Save security policy</button></form><p id="securitySaved" class="success" style="margin-top:14px"></p><div class="notice" style="margin-top:18px">Production note: these controls need server-side enforcement. Never store real admin passwords or security secrets in frontend JavaScript/localStorage.</div></section></div><section class="panel" style="margin-top:16px"><p class="kicker">Live access monitor</p><h2>Login status</h2><p>See recent login records and deny an email whenever necessary. “Where” is represented by page/referrer and browser metadata in this front-end prototype; a real backend should add IP/device auditing.</p><div class="login-table-wrap"><table class="table"><thead><tr><th>Email</th><th>Role</th><th>Login time</th><th>Entry page</th><th>Where from</th><th>Status</th><th>Control</th></tr></thead><tbody id="loginStatusTable"></tbody></table></div></section><section class="panel" style="margin-top:16px"><p class="kicker">Administrator scope</p><h2>Everything stays visible here — except raw secrets.</h2><div class="two-col"><div><div class="list-row"><div><strong>Content</strong><p>Events, colloquia, academic metrics and public pages.</p></div><span class="success">FULL</span></div><div class="list-row"><div><strong>Authorization</strong><p>Email/ID access, role assignment and revocation.</p></div><span class="success">FULL</span></div></div><div><div class="list-row"><div><strong>Security</strong><p>2FA policy, session policy and login alerts.</p></div><span class="success">FULL</span></div><div class="list-row"><div><strong>Personal information</strong><p>Reserved for admin-level operational control.</p></div><span class="success">FULL</span></div></div></div></section></main><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Control Centre | Presidency University Physics Society</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Accessible Skip Link -->
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <!-- ========== SITE HEADER ========== -->
+  <header class="site-header" role="banner">
+    <a class="brand" href="index.html" aria-label="Presidency University Physics Society Home">
+      <span class="brand-mark" aria-hidden="true">Ψ</span>
+      <span>
+        <strong>PUPS</strong>
+        <small>ADMIN CONTROL CENTRE</small>
+      </span>
+    </a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    <nav id="mainNav" class="main-nav" aria-label="Admin Navigation">
+      <a href="index.html">Public site</a>
+      <a href="events.html">Events</a>
+      <a href="colloquium.html">Colloquium</a>
+      <a href="member.html">Member Portal</a>
+      <a href="student.html">Student Portal</a>
+      <a class="login-link" href="javascript:logout()" aria-label="Log out of administrator session">Logout</a>
+    </nav>
+  </header>
+
+  <!-- ========== DASHBOARD SHELL ========== -->
+  <main id="mainContent" class="dashboard-shell" role="main">
+
+    <!-- System Status Ribbon -->
+    <div class="system-ribbon" role="region" aria-label="System Connectivity and Status Ribbon">
+      <div class="system-ribbon-left">
+        <div class="ribbon-item">
+          <span class="status-dot online" id="serverStatusDot" aria-hidden="true"></span>
+          <span>Data Server: <strong id="serverStatusText">Google Apps Script (Online)</strong></span>
+        </div>
+        <div class="ribbon-item">
+          <span>Spreadsheet Database: </span>
+          <a class="ribbon-link" href="https://docs.google.com/spreadsheets/d/1O7IF6Zy35Z2KYpLn2r6GEJnAl3Su3Sq8F5_nWQyjjNA/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Open database spreadsheet in Google Sheets (opens in new tab)">
+            1O7IF6Zy35Z2KYpLn2r6GEJnAl3Su3Sq8F5_nWQyjjNA ↗
+          </a>
+        </div>
+      </div>
+      <div class="system-ribbon-right">
+        <div class="ribbon-item">
+          <span>Operator: <strong id="adminOperatorBadge">Administrator</strong></span>
+        </div>
+        <div class="ribbon-item">
+          <span id="systemClock" aria-live="off">--:--:--</span>
+        </div>
+        <div class="ribbon-item">
+          <button class="mini-btn" id="pingServerBtn" type="button" aria-label="Test connection latency to Google Apps Script data server" style="padding:2px 8px; font-size:11px;">
+            ⚡ Ping Server
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard Heading -->
+    <div class="dashboard-head">
+      <div>
+        <p class="eyebrow">CENTRALIZED INFRASTRUCTURE &amp; ACCESS CONTROL</p>
+        <h1>Administrator Control Centre</h1>
+        <p>Authoritative management for user roles, live Google Apps Script server synchronization, security policies, and active sessions.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+        <span class="role-badge">Admin · Full System Access</span>
+        <span style="font-family:var(--admin-mono); font-size:11px; color:var(--muted);">Security Protocol v2.5</span>
+      </div>
+    </div>
+
+    <!-- Key Performance Indicators / Live Stats Grid -->
+    <section aria-labelledby="kpiHeading" style="margin-top:20px;">
+      <h2 id="kpiHeading" class="visually-hidden" style="position:absolute; width:1px; height:1px; overflow:hidden;">System Overview KPIs</h2>
+      <div id="adminStats" class="dash-grid" aria-live="polite"></div>
+    </section>
+
+    <!-- ===== MANAGE GRID: Authorization + Security ===== -->
+    <div class="manage-grid" style="margin-top:28px;">
+
+      <!-- Authorization Panel -->
+      <section class="panel" aria-labelledby="authHeading">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+          <div>
+            <p class="kicker">Cloud-Synced Authorization</p>
+            <h2 id="authHeading">Grant or modify user access</h2>
+          </div>
+          <a class="mini-btn" href="https://docs.google.com/spreadsheets/d/1O7IF6Zy35Z2KYpLn2r6GEJnAl3Su3Sq8F5_nWQyjjNA/edit?usp=sharing" target="_blank" rel="noopener noreferrer" title="View spreadsheet in Google Sheets">
+            📊 Open Google Sheet ↗
+          </a>
+        </div>
+        <p style="color:var(--muted); font-size:13px; margin-top:4px; margin-bottom:18px;">
+          All permission grants sync with the Google Apps Script data server. New institutional accounts are added directly to the Google Sheets database; existing entries retain their cloud record and receive active role elevation locally.
+        </p>
+
+        <form id="authForm" novalidate>
+          <div class="form-grid">
+
+            <!-- Full Name -->
+            <div class="field">
+              <label for="authName">Full Name</label>
+              <input id="authName" type="text" placeholder="e.g. Dr. Aritra Bakshi" required autocomplete="name">
+            </div>
+
+            <!-- Role Assignment -->
+            <div class="field">
+              <label for="authRole">Assign Role</label>
+              <select id="authRole" required>
+                <option value="student">Student (Read-only Academic Portal)</option>
+                <option value="member" selected>Member (Manage Content &amp; Metrics)</option>
+                <option value="admin">Administrator (Full System Control)</option>
+              </select>
+            </div>
+
+            <!-- Email / ID -->
+            <div class="field full">
+              <label for="authEmail">Institutional Email / ID</label>
+              <input id="authEmail" type="email" placeholder="user@presiuniv.ac.in" required autocomplete="email">
+            </div>
+
+            <!-- Temporary Access Checkbox -->
+            <div class="field full">
+              <label for="tempAccessEnabled" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="tempAccessEnabled" style="accent-color:var(--cyan); width:18px; height:18px;">
+                <span style="font-size:13px; text-transform:none; letter-spacing:normal; color:var(--text);">
+                  Grant temporary access (automatically reverts after duration)
+                </span>
+              </label>
+            </div>
+
+            <!-- Timer Fields -->
+            <div class="field" id="tempTimerField" style="display:none;">
+              <label for="tempDurationHours">Duration (Hours)</label>
+              <input id="tempDurationHours" type="number" min="0" max="72" value="1" placeholder="1">
+              <div class="duration-presets" aria-label="Preset hour shortcuts">
+                <button type="button" class="preset-btn" onclick="setDurationPreset(1, 0)">1 hr</button>
+                <button type="button" class="preset-btn" onclick="setDurationPreset(4, 0)">4 hrs</button>
+                <button type="button" class="preset-btn" onclick="setDurationPreset(24, 0)">24 hrs</button>
+              </div>
+            </div>
+
+            <div class="field" id="tempTimerMinField" style="display:none;">
+              <label for="tempDurationMins">Duration (Minutes)</label>
+              <input id="tempDurationMins" type="number" min="0" max="59" value="0" placeholder="0">
+            </div>
+
+            <!-- Submit Button -->
+            <div class="field full" style="margin-top:6px;">
+              <button class="btn primary" id="authSubmitBtn" type="submit" style="width:100%; display:flex; justify-content:center; gap:8px;">
+                <span>Authorize &amp; Sync to Data Server</span>
+              </button>
+            </div>
+
+          </div>
+        </form>
+
+        <!-- Feedback Banner -->
+        <div id="authStatusBanner" class="feedback-banner" role="status" aria-live="polite"></div>
+
+        <!-- Authorized Users Table -->
+        <div style="margin-top:28px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+            <div>
+              <h3 style="font-size:15px; margin:0; font-family:var(--admin-font); font-weight:600;">Active Authorized Accounts</h3>
+              <small style="color:var(--muted); font-size:11px;">Managed access credentials with backend sync tracking</small>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input
+                id="searchAuthUsers"
+                type="search"
+                placeholder="Search accounts..."
+                style="background:#0f172a; border:1px solid var(--admin-border); color:var(--text); padding:5px 9px; font-size:12px; border-radius:5px; width:160px;"
+                aria-label="Filter authorized accounts by name or email">
+              <span style="font-size:11px; font-family:var(--admin-mono); color:var(--muted);" id="authTableCount">0 accounts</span>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table" id="authTableElement" aria-label="Directory of authorized users and their assigned roles">
+              <thead>
+                <tr>
+                  <th scope="col">User</th>
+                  <th scope="col">Assigned Role</th>
+                  <th scope="col">Email / ID</th>
+                  <th scope="col">Access Validity</th>
+                  <th scope="col">Server Sync Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="memberAuthTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Security Governance Panel -->
+      <section class="panel" aria-labelledby="secHeading">
+        <p class="kicker">Security Governance</p>
+        <h2 id="secHeading">Access &amp; session policy</h2>
+        <p style="color:var(--muted); font-size:13px; margin-top:-6px; margin-bottom:18px;">
+          Configure global authentication requirements, automatic inactivity termination, and anomaly alerting.
+        </p>
+
+        <form id="securityForm">
+          <div class="field" style="margin-bottom:16px;">
+            <label for="sec2fa" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+              <input id="sec2fa" type="checkbox" style="accent-color:var(--cyan); width:18px; height:18px; margin-top:2px;">
+              <span style="text-transform:none; letter-spacing:normal; color:var(--text); font-size:13px;">
+                <strong>Require Two-Factor Authentication (2FA)</strong><br>
+                <small style="color:var(--muted);">Enforces secondary TOTP validation for elevated Member and Admin roles.</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="field" style="margin-bottom:16px;">
+            <label for="secAlerts" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+              <input id="secAlerts" type="checkbox" checked style="accent-color:var(--cyan); width:18px; height:18px; margin-top:2px;">
+              <span style="text-transform:none; letter-spacing:normal; color:var(--text); font-size:13px;">
+                <strong>Real-Time Login Alerts &amp; Auditing</strong><br>
+                <small style="color:var(--muted);">Log IP addresses, device signatures, and trigger notifications on anomalous logins.</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="field" style="margin-bottom:16px;">
+            <label for="secRateLimit" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+              <input id="secRateLimit" type="checkbox" checked style="accent-color:var(--cyan); width:18px; height:18px; margin-top:2px;">
+              <span style="text-transform:none; letter-spacing:normal; color:var(--text); font-size:13px;">
+                <strong>Brute-Force Rate Limiting</strong><br>
+                <small style="color:var(--muted);">Temporarily lock account login after 5 failed authentication attempts for 15 minutes.</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="field" style="margin-bottom:20px;">
+            <label for="sessionHours">Maximum Session Expiration (Hours)</label>
+            <input id="sessionHours" type="number" min="1" max="72" value="24" required>
+            <small style="color:var(--muted); font-size:11px; margin-top:4px;">Sessions exceeding this lifetime are forcibly expired and redirected to login.</small>
+          </div>
+
+          <button class="btn primary" type="submit" style="width:100%;">Save Security Policy</button>
+        </form>
+
+        <div id="securitySavedBanner" class="feedback-banner" role="status" aria-live="polite"></div>
+
+        <div class="notice" style="margin-top:22px;">
+          <strong>Server Enforcement Protocol:</strong><br>
+          In this deployment, passwords are cryptographically hashed using SHA-256 before transmission. Authorization records and authentication validation are verified against the Google Apps Script backend and Google Sheets database.
+        </div>
+      </section>
+
+    </div><!-- /manage-grid -->
+
+    <!-- ===== LIVE ACCESS MONITOR / SUPERVISION TABLE ===== -->
+    <section class="panel" style="margin-top:24px;" aria-labelledby="monitorHeading">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div>
+          <p class="kicker">Live Access Monitor</p>
+          <h2 id="monitorHeading">Real-time session supervision</h2>
+          <p style="color:var(--muted); font-size:13px; margin:4px 0 0;">
+            All login events and operational sessions are tracked in real-time. Use <strong>Force Logout</strong> to instantly revoke suspicious or unverified active sessions.
+          </p>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <select id="sessionFilterRole" class="field select" style="background:#0f172a; border:1px solid var(--admin-border); color:var(--text); padding:7px 10px; font-size:12px; border-radius:5px;" aria-label="Filter sessions by role">
+            <option value="all">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="member">Member</option>
+            <option value="student">Student</option>
+          </select>
+          <button class="mini-btn primary-btn" id="refreshLoginStatus" type="button" aria-label="Refresh session logs">
+            <span id="refreshSpinner" style="display:inline-block;">⟳</span> Refresh Monitor
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive" style="margin-top:18px;">
+        <table class="table" aria-label="Live authentication and session audit log">
+          <thead>
+            <tr>
+              <th scope="col">User / Email</th>
+              <th scope="col">Role</th>
+              <th scope="col">Login Timestamp</th>
+              <th scope="col">Entry Gateway</th>
+              <th scope="col">IP Address</th>
+              <th scope="col">Session State</th>
+              <th scope="col">Supervision Control</th>
+            </tr>
+          </thead>
+          <tbody id="loginStatusTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== ADMINISTRATOR SCOPE OVERVIEW ===== -->
+    <section class="panel" style="margin-top:24px;" aria-labelledby="scopeHeading">
+      <p class="kicker">Operational Governance Scope</p>
+      <h2 id="scopeHeading">System capabilities &amp; privileges</h2>
+      <div class="two-col" style="margin-top:16px;">
+        <div>
+          <div class="list-row">
+            <div>
+              <strong>Academic Content</strong>
+              <p>Workshops, colloquium archive, research metrics, and public notices.</p>
+            </div>
+            <span class="badge-chip admin">FULL ACCESS</span>
+          </div>
+          <div class="list-row">
+            <div>
+              <strong>User Authorization</strong>
+              <p>Institutional ID assignment, role promotion/demotion, and server synchronization.</p>
+            </div>
+            <span class="badge-chip admin">FULL ACCESS</span>
+          </div>
+        </div>
+        <div>
+          <div class="list-row">
+            <div>
+              <strong>Security Governance</strong>
+              <p>Session timeout policies, 2FA governance, brute-force rate limits, and audit tracking.</p>
+            </div>
+            <span class="badge-chip admin">FULL ACCESS</span>
+          </div>
+          <div class="list-row">
+            <div>
+              <strong>Operational Data Server</strong>
+              <p>Direct communication with Google Apps Script endpoint and Google Sheets database.</p>
+            </div>
+            <span class="badge-chip admin">FULL ACCESS</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- /dashboard-shell -->
+
+  <!-- Modern Floating Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Accessible Site Footer -->
+  <footer>
+    <div>
+      <strong>Presidency University Physics Society</strong>
+      <span>Administrative Infrastructure System</span>
+    </div>
+    <div>© 2026 Presidency University</div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

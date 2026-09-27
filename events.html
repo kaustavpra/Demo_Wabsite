@@ -1,1 +1,67 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Events | Presidency University Physics Society</title><link rel="stylesheet" href="styles.css"></head><body><header class="site-header"><a class="brand" href="index.html"><span class="brand-mark">Ψ</span><span><strong>PUPS</strong><small>PRESIDENCY UNIVERSITY</small></span></a><button class="menu-toggle" id="menuToggle">☰</button><nav id="mainNav" class="main-nav"><a href="index.html">Home</a><a href="about.html">About</a><a class="active" href="events.html">Events</a><a href="colloquium.html">Colloquium</a><a href="team.html">Team</a><a href="contact.html">Contact</a><a class="login-link" href="login.html">Login</a></nav></header><main><section class="page-hero"><p class="eyebrow">EVENTS</p><h1>Things to attend.<br>Things to make.</h1><p>Workshops, showcases, orientations and society activities. Publicly visible here; editable from the member and admin dashboards.</p></section><div class="content-wrap"><div class="toolbar"><input class="search" id="eventSearch" placeholder="Search events..."></div><div id="eventsGrid" class="card-grid"></div></div></main><footer><div><strong>Presidency University Physics Society</strong><span>Public events directory</span></div><div>© 2026</div></footer><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Events | Presidency University Physics Society</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Accessible Skip Link -->
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <!-- ========== SITE HEADER ========== -->
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Presidency University Physics Society Home">
+      <span class="brand-mark" aria-hidden="true">Ψ</span>
+      <span>
+        <strong>PUPS</strong>
+        <small>PRESIDENCY UNIVERSITY</small>
+      </span>
+    </a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a class="active" href="events.html">Events</a>
+      <a href="colloquium.html">Colloquium</a>
+      <a href="team.html">Team</a>
+      <a href="contact.html">Contact</a>
+      <a class="login-link" href="login.html">Login</a>
+    </nav>
+  </header>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main id="mainContent">
+    <section class="page-hero">
+      <p class="eyebrow">EVENTS</p>
+      <h1>Things to attend.<br>Things to make.</h1>
+      <p>Workshops, showcases, orientations, and society activities. Publicly visible here; editable from the member and admin dashboards.</p>
+    </section>
+
+    <div class="content-wrap">
+      <div class="toolbar" role="search" aria-label="Events search">
+        <input
+          class="search"
+          id="eventSearch"
+          type="search"
+          placeholder="Search events by title, type, or description..."
+          aria-label="Search events by title, type, or description">
+      </div>
+      <div id="eventsGrid" class="card-grid" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <!-- ========== SITE FOOTER ========== -->
+  <footer>
+    <div>
+      <strong>Presidency University Physics Society</strong>
+      <span>Public events directory</span>
+    </div>
+    <div>© 2026 Presidency University</div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
