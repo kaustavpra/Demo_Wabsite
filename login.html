@@ -20,7 +20,13 @@
         <small>PHYSICS SOCIETY</small>
       </span>
     </a>
-    <a class="btn ghost" href="index.html">← Back home</a>
+    <div class="header-right-tools">
+      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+        <span class="mood-icon" aria-hidden="true">🌙</span>
+        <span class="mood-label">Dark</span>
+      </button>
+      <a class="btn ghost" href="index.html">← Back home</a>
+    </div>
   </header>
 
   <!-- ========== MAIN CONTENT ========== -->
@@ -34,7 +40,7 @@
         <p>The public website is open to everyone. Authenticated areas are deliberately separated by responsibility.</p>
 
         <div class="role-list" role="radiogroup" aria-label="Select login role">
-          <button class="role-option" data-role="student" role="radio" aria-checked="true">
+          <button class="role-option active" data-role="student" role="radio" aria-checked="true">
             <strong>01 · Students</strong><br>
             <span>Academic/student portal only</span>
           </button>
@@ -75,13 +81,18 @@
                 placeholder="••••••••"
                 autocomplete="current-password"
                 required
-                style="width: 100%; padding-right: 40px;">
+                style="width: 100%; padding-right: 56px;">
               <button
                 type="button"
                 id="passwordToggleBtn"
-                style="position: absolute; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 16px;"
+                class="neon-eye-btn"
                 aria-label="Toggle password visibility"
-                title="Press and hold to view password">👁️</button>
+                title="Press and hold to view password">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3" class="pupil-glow"></circle>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -104,6 +115,33 @@
 
     </div>
   </main>
+
+  <!-- ========== FULL-SCREEN QUANTUM AUTHORIZATION PORTAL ========== -->
+  <div id="authPortalOverlay" class="auth-portal-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Authenticating session">
+    <div class="portal-content">
+      <div class="quantum-gyroscope">
+        <div class="gyro-ring gyro-ring-1"></div>
+        <div class="gyro-ring gyro-ring-2"></div>
+        <div class="gyro-ring gyro-ring-3"></div>
+        <div class="quantum-core">
+          <div class="core-pulse"></div>
+          <span class="core-symbol">Ψ</span>
+        </div>
+      </div>
+      <div class="portal-title">QUANTUM GATEWAY AUTHORIZING</div>
+      <div class="portal-subtitle" id="portalSubRole">AUTHENTICATING ACCESS FOR STUDENT</div>
+      <div class="terminal-feed">
+        <div class="feed-line active" id="feedLine1">> Initializing Secure Quantum Handshake...</div>
+        <div class="feed-line" id="feedLine2">> Computing SHA-256 Cryptographic Hash...</div>
+        <div class="feed-line" id="feedLine3">> Connecting to Google Apps Script Cloud Engine...</div>
+        <div class="feed-line" id="feedLine4">> Validating Access Matrix with Spreadsheet Database...</div>
+        <div class="feed-line" id="feedLine5">> Access Confirmed. Decrypting Session Matrix...</div>
+      </div>
+      <div class="portal-progress-bar">
+        <div class="portal-progress-fill" id="portalProgressFill"></div>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

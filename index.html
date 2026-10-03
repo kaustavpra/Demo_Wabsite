@@ -20,7 +20,13 @@
         <small>PRESIDENCY UNIVERSITY</small>
       </span>
     </a>
-    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    <div class="header-right-tools">
+      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+        <span class="mood-icon" aria-hidden="true">🌙</span>
+        <span class="mood-label">Dark</span>
+      </button>
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    </div>
     <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
       <a class="active" href="index.html">Home</a>
       <a href="about.html">About</a>
@@ -49,14 +55,17 @@
         </div>
       </div>
 
-      <div class="hero-visual" role="img" aria-label="Abstract orbital illustration of celestial mechanics">
-        <div class="orbit orbit-a"></div>
-        <div class="orbit orbit-b"></div>
-        <div class="orbit orbit-c"></div>
-        <div class="planet planet-main"></div>
-        <div class="planet planet-small"></div>
-        <div class="axis axis-x"></div>
-        <div class="axis axis-y"></div>
+      <div class="hero-visual tilt-card" id="heroVisual3D" role="img" aria-label="Interactive 3D orbital illustration of celestial mechanics">
+        <canvas id="celestialCanvas" class="celestial-canvas" aria-hidden="true"></canvas>
+        <div class="tilt-card-inner">
+          <div class="orbit orbit-a"></div>
+          <div class="orbit orbit-b"></div>
+          <div class="orbit orbit-c"></div>
+          <div class="planet planet-main"></div>
+          <div class="planet planet-small"></div>
+          <div class="axis axis-x"></div>
+          <div class="axis axis-y"></div>
+        </div>
       </div>
     </section>
 
@@ -107,8 +116,8 @@
     </section>
 
     <!-- Colloquium Archive Preview -->
-    <section class="feature-panel">
-      <div>
+    <section class="feature-panel tilt-card">
+      <div class="tilt-card-inner">
         <p class="eyebrow">COLLOQUIUM ARCHIVE</p>
         <h2>One room.<br>Many ways to think.</h2>
         <p>
@@ -116,7 +125,7 @@
         </p>
         <a class="btn primary" href="colloquium.html">Browse colloquia</a>
       </div>
-      <div class="equation-card">
+      <div class="equation-card tilt-card">
         <span>01</span>
         <div class="equation" aria-label="Lagrangian equation: L equals T minus V">L = T − V</div>
         <small>mechanics → models → questions</small>

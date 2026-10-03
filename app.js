@@ -525,22 +525,54 @@ function initLogin() {
     } catch { /* ignore */ }
   }
 
-  // Password visibility toggle
+  // Neon Cybernetic Password visibility toggle (Press and Hold to Reveal)
   const passwordInput = qs('#passwordInput');
   const toggleBtn     = qs('#passwordToggleBtn');
   if (passwordInput && toggleBtn) {
-    const showPwd = () => { passwordInput.type = 'text'; };
-    const hidePwd = () => { passwordInput.type = 'password'; };
+    const showPwd = (e) => {
+      if (e) e.preventDefault();
+      passwordInput.type = 'text';
+      toggleBtn.classList.add('revealed');
+    };
+    const hidePwd = (e) => {
+      if (e) e.preventDefault();
+      passwordInput.type = 'password';
+      toggleBtn.classList.remove('revealed');
+    };
+
     toggleBtn.addEventListener('mousedown', showPwd);
     toggleBtn.addEventListener('mouseup', hidePwd);
     toggleBtn.addEventListener('mouseleave', hidePwd);
-    toggleBtn.addEventListener('touchstart', (e) => { e.preventDefault(); showPwd(); });
+    toggleBtn.addEventListener('touchstart', showPwd, { passive: false });
     toggleBtn.addEventListener('touchend', hidePwd);
     toggleBtn.addEventListener('touchcancel', hidePwd);
   }
 
+  // 3D Card tilt on auth-card
+  const authCard = qs('.auth-card');
+  if (authCard) {
+    authCard.addEventListener('mousemove', (e) => {
+      const rect = authCard.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      authCard.style.transform = `perspective(1200px) rotateX(${-y * 6}deg) rotateY(${x * 6}deg)`;
+    });
+    authCard.addEventListener('mouseleave', () => {
+      authCard.style.transform = 'perspective(1200px) rotateX(0deg) rotateY(0deg)';
+    });
+  }
+
   const form = qs('#loginForm');
   if (!form) return;
+
+  const overlay       = qs('#authPortalOverlay');
+  const portalSubRole = qs('#portalSubRole');
+  const progressFill  = qs('#portalProgressFill');
+  const feed1         = qs('#feedLine1');
+  const feed2         = qs('#feedLine2');
+  const feed3         = qs('#feedLine3');
+  const feed4         = qs('#feedLine4');
+  const feed5         = qs('#feedLine5');
 
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -568,15 +600,40 @@ function initLogin() {
       }
     }
 
+    // Trigger Full-Screen Sci-Fi Quantum Authorization Portal
+    if (overlay) {
+      if (portalSubRole) portalSubRole.textContent = `AUTHENTICATING ACCESS FOR ${requestedRole.toUpperCase()}`;
+      overlay.classList.remove('warp-out', 'anomaly');
+      overlay.classList.add('active');
+      if (progressFill) {
+        progressFill.style.width = '15%';
+        progressFill.style.background = 'linear-gradient(90deg, var(--cyan), var(--gold), var(--violet))';
+      }
+
+      if (feed1) { feed1.className = 'feed-line active'; feed1.textContent = '> Initializing Secure Quantum Handshake...'; }
+      if (feed2) { feed2.className = 'feed-line'; feed2.textContent = '> Computing SHA-256 Cryptographic Hash...'; }
+      if (feed3) { feed3.className = 'feed-line'; feed3.textContent = '> Connecting to Google Apps Script Cloud Engine...'; }
+      if (feed4) { feed4.className = 'feed-line'; feed4.textContent = '> Validating Access Matrix with Spreadsheet Database...'; }
+      if (feed5) { feed5.className = 'feed-line'; feed5.textContent = '> Access Confirmed. Decrypting Session Matrix...'; }
+    }
+
+    submitBtn.disabled = true;
+    if (err) err.textContent = '';
+
+    const startTime = Date.now();
+
     try {
-      submitBtn.innerText = 'Authenticating…';
-      submitBtn.disabled  = true;
-      if (err) err.textContent = '';
-
+      // Step 1: Compute Hash
       const passwordHash = await hashPassword(password);
-      const publicIP     = await getPublicIP();
+      if (feed2) feed2.classList.add('active');
+      if (progressFill) progressFill.style.width = '35%';
 
-      // Check if this user has an active authorized role override from the Admin panel
+      // Step 2: Fetch IP
+      const publicIP = await getPublicIP();
+      if (feed3) feed3.classList.add('active');
+      if (progressFill) progressFill.style.width = '60%';
+
+      // Check role overrides
       const overrides = loadRoleOverrides();
       const override = overrides.find(o => o.email.toLowerCase() === email);
       const hasActiveOverride =
@@ -601,14 +658,17 @@ function initLogin() {
         });
         result = await response.json();
       } catch {
-        // Server unreachable or timed out; evaluate client context below
         result = null;
+      }
+
+      // Guarantee minimum 1.2s sequence for cinematic sci-fi immersion
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1200) {
+        await new Promise(r => setTimeout(r, 1200 - elapsed));
       }
 
       const isServerSuccess = result && result.status === 'success';
 
-      // Login succeeds if server verified credentials, OR if user has active admin-granted role override,
-      // OR if logging into open Student portal
       if (isServerSuccess || hasActiveOverride || requestedRole === 'student') {
         clearFailedLoginAttempts(email);
 
@@ -648,6 +708,16 @@ function initLogin() {
           localStorage.removeItem(REMEMBER_KEY);
         }
 
+        // Telemetry success progression
+        if (feed4) { feed4.className = 'feed-line success'; }
+        if (feed5) { feed5.className = 'feed-line success'; }
+        if (progressFill) progressFill.style.width = '100%';
+
+        await new Promise(r => setTimeout(r, 400));
+        if (overlay) overlay.classList.add('warp-out');
+
+        await new Promise(r => setTimeout(r, 450));
+
         // Redirect based on role
         if (effectiveRole === 'student') {
           location.href = 'student.html';
@@ -658,7 +728,7 @@ function initLogin() {
         }
 
       } else {
-        // Record failed login event
+        // Failed login
         appendLoginEvent({
           email:     email,
           role:      requestedRole,
@@ -668,18 +738,28 @@ function initLogin() {
         });
 
         recordFailedLoginAttempt(email);
-        if (err) {
-          err.textContent = (result && result.message)
-            ? result.message
-            : 'Authentication rejected: Invalid credentials or unauthorized for this room.';
+
+        const failMessage = (result && result.message)
+          ? result.message
+          : 'Authentication rejected: Invalid credentials or unauthorized for this room.';
+
+        if (overlay) {
+          overlay.classList.add('anomaly');
+          if (feed4) { feed4.className = 'feed-line error'; feed4.textContent = `> Anomaly: ${failMessage}`; }
+          if (progressFill) { progressFill.style.background = 'var(--red)'; }
         }
+
+        await new Promise(r => setTimeout(r, 1400));
+
+        if (overlay) overlay.classList.remove('active', 'anomaly');
+        if (err) err.textContent = failMessage;
+        submitBtn.disabled = false;
       }
 
-    } catch {
+    } catch (errEx) {
+      if (overlay) overlay.classList.remove('active');
       if (err) err.textContent = 'System error processing authentication.';
-    } finally {
-      submitBtn.innerText = 'Continue →';
-      submitBtn.disabled  = false;
+      submitBtn.disabled = false;
     }
   };
 }
@@ -1735,19 +1815,260 @@ function initColloquia() {
   if (fieldSelect) fieldSelect.addEventListener('change', render);
 }
 
+// ============================================================
+//  MOOD SWITCHER (BRIGHT / DARK THEME)
+// ============================================================
+const MOOD_KEY = 'pupsMood';
+
+function applyMood(mood) {
+  document.documentElement.setAttribute('data-theme', mood);
+  localStorage.setItem(MOOD_KEY, mood);
+
+  qsa('#moodToggle, .mood-toggle-btn').forEach(btn => {
+    const icon = btn.querySelector('.mood-icon');
+    const label = btn.querySelector('.mood-label');
+    if (mood === 'bright') {
+      if (icon) icon.textContent = '☀️';
+      if (label) label.textContent = 'Bright';
+      btn.setAttribute('aria-label', 'Switch to Dark mood');
+      btn.title = 'Current: Bright daylight. Click to switch to Dark celestial.';
+    } else {
+      if (icon) icon.textContent = '🌙';
+      if (label) label.textContent = 'Dark';
+      btn.setAttribute('aria-label', 'Switch to Bright mood');
+      btn.title = 'Current: Dark celestial. Click to switch to Bright daylight.';
+    }
+  });
+}
+
+function initMoodSwitcher() {
+  const savedMood = localStorage.getItem(MOOD_KEY) || 'dark';
+  applyMood(savedMood);
+
+  // If header exists but has no mood toggle button, inject one dynamically!
+  const header = qs('.site-header');
+  if (header && !qs('#moodToggle')) {
+    let tools = header.querySelector('.header-right-tools');
+    if (!tools) {
+      tools = document.createElement('div');
+      tools.className = 'header-right-tools';
+      const menuBtn = header.querySelector('#menuToggle');
+      if (menuBtn) {
+        header.insertBefore(tools, menuBtn);
+        tools.appendChild(menuBtn);
+      } else {
+        header.appendChild(tools);
+      }
+    }
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'mood-toggle-btn';
+    toggleBtn.id = 'moodToggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = `
+      <span class="mood-icon" aria-hidden="true">${savedMood === 'bright' ? '☀️' : '🌙'}</span>
+      <span class="mood-label">${savedMood === 'bright' ? 'Bright' : 'Dark'}</span>
+    `;
+    tools.insertBefore(toggleBtn, tools.firstChild);
+  }
+
+  // Delegated click listener for mood buttons
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#moodToggle, .mood-toggle-btn');
+    if (btn) {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'bright' : 'dark';
+      applyMood(next);
+    }
+  });
+}
+
+// Apply saved mood immediately on parse to avoid flash
+(function() {
+  try {
+    const m = localStorage.getItem('pupsMood') || 'dark';
+    document.documentElement.setAttribute('data-theme', m);
+  } catch {}
+})();
+
+// ============================================================
+//  3D INTERACTIVE ENGINE & CARD TILT
+// ============================================================
+function initTiltCards() {
+  const cards = qsa('.tilt-card');
+  cards.forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      const normX = (x - centerX) / centerX;
+      const normY = (y - centerY) / centerY;
+
+      const rotateX = -8 * normY;
+      const rotateY = 10 * normX;
+
+      card.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale3d(1.02, 1.02, 1.02)`;
+      card.style.setProperty('--mouse-x', `${((x / rect.width) * 100).toFixed(1)}%`);
+      card.style.setProperty('--mouse-y', `${((y / rect.height) * 100).toFixed(1)}%`);
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    });
+  });
+}
+
+function init3DMainPage() {
+  initTiltCards();
+
+  // 3D Canvas Particle Starfield in Hero
+  const canvas = qs('#celestialCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    let width = canvas.width = canvas.offsetWidth;
+    let height = canvas.height = canvas.offsetHeight;
+
+    window.addEventListener('resize', () => {
+      if (!canvas) return;
+      width = canvas.width = canvas.offsetWidth;
+      height = canvas.height = canvas.offsetHeight;
+    });
+
+    const numParticles = 60;
+    const particles = [];
+    const radius = Math.min(width, height) * 0.42 || 140;
+
+    for (let i = 0; i < numParticles; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random() * 2) - 1);
+      particles.push({
+        theta,
+        phi,
+        speed: 0.0025 + Math.random() * 0.0035,
+        size: 1.2 + Math.random() * 2
+      });
+    }
+
+    let mouseX = 0, mouseY = 0;
+    const heroVisual = qs('#heroVisual3D');
+    if (heroVisual) {
+      heroVisual.addEventListener('mousemove', (e) => {
+        const rect = heroVisual.getBoundingClientRect();
+        mouseX = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+        mouseY = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+      });
+      heroVisual.addEventListener('mouseleave', () => {
+        mouseX = 0;
+        mouseY = 0;
+      });
+    }
+
+    let angleX = 0, angleY = 0;
+    function render3D() {
+      if (!canvas || !canvas.isConnected) return;
+      ctx.clearRect(0, 0, width, height);
+
+      const isBright = document.documentElement.getAttribute('data-theme') === 'bright';
+      const particleColor = isBright ? 'rgba(217, 119, 6, ' : 'rgba(255, 184, 107, ';
+      const beamColor = isBright ? 'rgba(2, 132, 199, 0.08)' : 'rgba(183, 162, 255, 0.1)';
+
+      angleY += 0.0035 + (mouseX * 0.008);
+      angleX += 0.002 + (mouseY * 0.006);
+
+      const cx = width / 2;
+      const cy = height / 2;
+      const focalLength = 320;
+
+      const projected = [];
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.theta += p.speed;
+
+        // 3D Spherical coordinates
+        const x3 = radius * Math.sin(p.phi) * Math.cos(p.theta);
+        const y3 = radius * Math.sin(p.phi) * Math.sin(p.theta);
+        const z3 = radius * Math.cos(p.phi);
+
+        // Rotation around X and Y
+        const cosY = Math.cos(angleY), sinY = Math.sin(angleY);
+        const xRot = x3 * cosY - z3 * sinY;
+        const zRot1 = x3 * sinY + z3 * cosY;
+
+        const cosX = Math.cos(angleX), sinX = Math.sin(angleX);
+        const yRot = y3 * cosX - zRot1 * sinX;
+        const zRot2 = y3 * sinX + zRot1 * cosX;
+
+        // Perspective projection
+        const scale = focalLength / (focalLength + zRot2 + radius);
+        const px = cx + xRot * scale;
+        const py = cy + yRot * scale;
+        const alpha = Math.max(0.1, Math.min(0.9, (zRot2 + radius) / (2 * radius)));
+
+        projected.push({ x: px, y: py, alpha, size: p.size * scale });
+      }
+
+      // Draw faint constellation filaments between nearby particles
+      for (let i = 0; i < projected.length; i++) {
+        for (let j = i + 1; j < projected.length; j++) {
+          const dx = projected[i].x - projected[j].x;
+          const dy = projected[i].y - projected[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 55) {
+            ctx.strokeStyle = beamColor;
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(projected[i].x, projected[i].y);
+            ctx.lineTo(projected[j].x, projected[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw glowing particles
+      for (let i = 0; i < projected.length; i++) {
+        const pt = projected[i];
+        ctx.fillStyle = particleColor + pt.alpha + ')';
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, Math.max(0.8, pt.size), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      requestAnimationFrame(render3D);
+    }
+
+    render3D();
+  }
+
+  // Parallax Scroll Reaction
+  window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY;
+    const heroVisual = qs('#heroVisual3D');
+    if (heroVisual && scrollY < 800) {
+      heroVisual.style.transform = `translateY(${scrollY * 0.08}px)`;
+    }
+  }, { passive: true });
+}
+
 function initHome() {
   initNav();
+  init3DMainPage();
   const homeEvents = qs('#homeEvents');
   if (homeEvents) {
     const db = loadDB();
     const recent = db.events.slice(0, 2);
     homeEvents.innerHTML = recent.map(ev => `
-      <article class="card">
-        <div class="meta">${escapeHTML(ev.type)} · ${formatDate(ev.date)}</div>
-        <h3>${escapeHTML(ev.title)}</h3>
-        <p>${escapeHTML(ev.description)}</p>
+      <article class="card tilt-card">
+        <div class="tilt-card-inner">
+          <div class="meta">${escapeHTML(ev.type)} · ${formatDate(ev.date)}</div>
+          <h3>${escapeHTML(ev.title)}</h3>
+          <p>${escapeHTML(ev.description)}</p>
+        </div>
       </article>
     `).join('');
+    initTiltCards();
   }
 }
 
@@ -1755,6 +2076,7 @@ function initHome() {
 //  PAGE DISPATCHER
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  initMoodSwitcher();
   const page = currentPage();
 
   if (page === 'login.html') {
@@ -1794,3 +2116,5 @@ window.setDurationPreset  = setDurationPreset;
 window.deleteEvent        = deleteEvent;
 window.deleteColloquium   = deleteColloquium;
 window.pingDataServer     = pingDataServer;
+window.applyMood          = applyMood;
+window.initMoodSwitcher   = initMoodSwitcher;
