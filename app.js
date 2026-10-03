@@ -1,5 +1,5 @@
 // ============================================================
-//  PUPS – Physics Society  |  app.js
+//  Presidency University Physics Society  |  app.js
 //  Complete Application Logic: Auth, Admin Control Centre,
 //  Google Apps Script Backend Sync, Security Policies, Dynamic Portals
 // ============================================================
