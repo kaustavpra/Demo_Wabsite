@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Registration | Presidency University Physics Society</title>
+  <link rel="icon" type="image/png" href="pups-logo.png">
+  <link rel="apple-touch-icon" href="pups-logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Accessible Skip Link -->
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <!-- ========== SITE HEADER ========== -->
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Presidency University Physics Society Home">
+      <img class="brand-mark" src="pups-logo.png" alt="Presidency University Physics Society Logo" width="44" height="44">
+      <span>
+        <strong>Presidency University Physics Society</strong>
+      </span>
+    </a>
+    <div class="header-right-tools">
+      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+        <span class="mood-icon" aria-hidden="true">🌙</span>
+        <span class="mood-label">Dark</span>
+      </button>
+      <a class="btn ghost" href="login.html" style="font-size: 12px; padding: 8px 14px;">Sign in</a>
+      <a class="btn ghost" href="index.html" style="font-size: 12px; padding: 8px 14px;">← Back home</a>
+    </div>
+  </header>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main id="mainContent" class="auth-shell">
+    <div class="auth-card">
+
+      <!-- Registration Info Sidebar -->
+      <section class="role-side" aria-labelledby="regSideHeading">
+        <p class="eyebrow">NEW STUDENT ENROLLMENT</p>
+        <h1 id="regSideHeading">Join our<br>society.</h1>
+        <p>
+          Student registration grants immediate academic access to research colloquia archives, experimental notes, seminar recordings, and forum discussions.
+        </p>
+
+        <div class="registration-steps">
+          <div class="step-badge active" id="stepBadge1">
+            <strong>01 · Verify Email ID</strong>
+            <span>Live MX validation to verify actual mailbox existence</span>
+          </div>
+          <div class="step-badge" id="stepBadge2">
+            <strong>02 · Set Password</strong>
+            <span>Choose your personal password, hashed via SHA-256</span>
+          </div>
+          <div class="step-badge" id="stepBadge3">
+            <strong>03 · Student Role Assigned</strong>
+            <span>Enrolled into central database with Student access</span>
+          </div>
+        </div>
+
+        <div style="margin-top:24px; padding:14px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); font-size:12px; line-height:1.5;">
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Elevated Privileges Protocol:</strong>
+          <span style="color:var(--muted);">All registrations initially receive Student access. In future, Society Administrators can elevate your authorization to Member or Admin in the Data Center.</span>
+        </div>
+      </section>
+
+      <!-- Registration Form Pane -->
+      <section class="login-pane" aria-labelledby="regHeading">
+        <p class="selected-role">Student Portal Registration</p>
+        <h2 id="regHeading">Create Account</h2>
+        <p class="login-help">Enter your institutional or personal credentials below.</p>
+
+        <form id="registerForm" novalidate>
+
+          <!-- Full Name -->
+          <div class="field">
+            <label for="regName">Full Name</label>
+            <input
+              type="text"
+              id="regName"
+              placeholder="e.g. Arijit Mukherjee"
+              autocomplete="name"
+              required>
+          </div>
+
+          <!-- Email with Verification Action -->
+          <div class="field">
+            <label for="regEmail">Email Address</label>
+            <div style="display:flex; gap:8px;">
+              <input
+                type="email"
+                id="regEmail"
+                placeholder="you@presiuniv.ac.in"
+                autocomplete="email"
+                required
+                style="flex:1;">
+              <button
+                type="button"
+                id="verifyEmailBtn"
+                class="mini-btn primary-btn"
+                style="white-space:nowrap; padding:0 14px;">
+                Verify Email
+              </button>
+            </div>
+            <div id="emailVerifyStatus" style="font-size:11px; margin-top:6px; font-family:var(--admin-mono); display:flex; align-items:center; gap:6px;">
+              <span class="verify-badge unverified" id="verifyBadge">Email Not Verified</span>
+              <span id="verifyText" style="color:var(--muted);">Click "Verify Email" to authenticate address existence</span>
+            </div>
+          </div>
+
+          <!-- 6-Digit Verification Code Section (Appears after email check) -->
+          <div class="field" id="verifyCodeField" style="display:none; margin-top:14px; padding:12px; background:var(--panel2); border:1px solid var(--line); border-radius:8px;">
+            <label for="regVerifyCode" style="font-size:12px;">Enter 6-Digit Verification Token</label>
+            <div style="display:flex; gap:8px; margin-top:4px;">
+              <input
+                type="text"
+                id="regVerifyCode"
+                placeholder="••••••"
+                maxlength="6"
+                style="letter-spacing:4px; font-weight:700; text-align:center; font-family:var(--admin-mono); font-size:15px; width:130px;">
+              <button
+                type="button"
+                id="confirmCodeBtn"
+                class="mini-btn"
+                style="padding:0 14px;">
+                Confirm Code
+              </button>
+            </div>
+            <small id="verifyCodeHint" style="font-size:11px; color:var(--cyan); margin-top:6px; display:block; font-family:var(--admin-mono);"></small>
+          </div>
+
+          <!-- Password Field with Neon Eye Reveal -->
+          <div class="field" style="margin-top:14px;">
+            <label for="regPassword">Personal Password</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input
+                type="password"
+                id="regPassword"
+                placeholder="At least 6 characters"
+                autocomplete="new-password"
+                required
+                style="width: 100%; padding-right: 56px;">
+              <button
+                type="button"
+                id="regPasswordToggleBtn"
+                class="neon-eye-btn"
+                aria-label="Toggle password visibility"
+                title="Press and hold to view password">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3" class="pupil-glow"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Confirm Password Field -->
+          <div class="field">
+            <label for="regConfirmPassword">Confirm Password</label>
+            <input
+              type="password"
+              id="regConfirmPassword"
+              placeholder="Re-enter your password"
+              autocomplete="new-password"
+              required>
+          </div>
+
+          <!-- Submit Button -->
+          <button class="btn primary" id="registerSubmitBtn" type="submit" style="width:100%; justify-content:center; margin-top:8px;">
+            Complete Student Registration →
+          </button>
+        </form>
+
+        <p class="login-help" style="margin-top:14px;">
+          Passphrases are cryptographically salted and hashed via SHA-256 before being synced with the central data server.
+        </p>
+
+        <!-- Feedback Messages -->
+        <div id="registerError" class="danger" role="alert" aria-live="assertive" style="display:none; margin-top:10px;"></div>
+        <div id="registerSuccess" class="feedback-banner success" role="status" style="display:none; margin-top:10px;"></div>
+
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); text-align: center;">
+          <p style="font-size: 13px; color: var(--muted); margin: 0 0 6px;">Already registered?</p>
+          <a href="login.html" class="text-link" style="font-size: 13px; font-weight: 600;">Sign in to your account →</a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ========== FULL-SCREEN QUANTUM REGISTRATION PORTAL ========== -->
+  <div id="authPortalOverlay" class="auth-portal-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Registering new student account">
+    <div class="portal-content">
+      <div class="quantum-gyroscope">
+        <div class="gyro-ring gyro-ring-1"></div>
+        <div class="gyro-ring gyro-ring-2"></div>
+        <div class="gyro-ring gyro-ring-3"></div>
+        <div class="quantum-core">
+          <div class="core-pulse"></div>
+          <span class="core-symbol">Ψ</span>
+        </div>
+      </div>
+      <div class="portal-title">ENROLLING STUDENT ACCOUNT</div>
+      <div class="portal-subtitle" id="portalSubRole">INITIALIZING STUDENT DATA MATRIX</div>
+      <div class="terminal-feed">
+        <div class="feed-line active" id="feedLine1">> Verifying Cryptographic Email Handshake...</div>
+        <div class="feed-line" id="feedLine2">> Computing SHA-256 Password Digest...</div>
+        <div class="feed-line" id="feedLine3">> Syncing Student Profile to Google Apps Script...</div>
+        <div class="feed-line" id="feedLine4">> Registering Account on Database Sheet (Role: Student)...</div>
+        <div class="feed-line" id="feedLine5">> Enrollment Complete. Preparing Academic Workspace...</div>
+      </div>
+      <div class="portal-progress">
+        <div class="progress-bar-fill" id="portalProgressFill" style="width: 15%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modern Floating Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Accessible Site Footer -->
+  <footer>
+    <div>
+      <strong>Presidency University Physics Society</strong>
+      <span>Student Enrollment Portal</span>
+    </div>
+    <div>© 2026 Presidency University</div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

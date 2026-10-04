@@ -35,6 +35,7 @@
       <a href="colloquium.html">Colloquium</a>
       <a href="team.html">Team</a>
       <a href="contact.html">Contact</a>
+      <a href="register.html" class="register-nav-link">Register</a>
       <a class="login-link" href="login.html">Login</a>
     </nav>
   </header>
@@ -124,13 +125,13 @@
         <p>
           Talks can move from orbital dynamics to materials, quantum ideas, computational physics and beyond. Every colloquium becomes part of a growing academic archive.
         </p>
-        <a class="btn primary" href="colloquium.html">Browse colloquia</a>
+        <a class="btn primary" id="browseColloquiumBtn" href="colloquium.html" onclick="location.href='colloquium.html';">Browse colloquium →</a>
       </div>
-      <div class="equation-card tilt-card">
+      <a class="equation-card tilt-card" href="colloquium.html" style="text-decoration:none;" aria-label="Explore physics colloquium archive">
         <span>01</span>
         <div class="equation" aria-label="Lagrangian equation: L equals T minus V">L = T − V</div>
-        <small>mechanics → models → questions</small>
-      </div>
+        <small style="color:var(--cyan); font-weight:600;">mechanics → models → browse archive ↗</small>
+      </a>
     </section>
 
   </main>

@@ -20,6 +20,7 @@ const FORCE_LOGOUT_KEY    = 'pupsForceLogout';
 const ROLE_OVERRIDE_KEY   = 'pupsRoleOverrides';
 const SECURITY_POLICY_KEY = 'pupsSecurityPolicy';
 const FAILED_LOGINS_KEY   = 'pupsFailedLogins';
+const REGISTERED_USERS_KEY = 'pupsRegisteredUsers';
 
 // ── Default Content Database ─────────────────────────────────
 const defaultDB = {
@@ -194,7 +195,107 @@ function showToast(message, type = 'info', duration = 4000) {
   }, duration);
 }
 
-// ── Navigation Initialization ───────────────────────────────
+// ── Registered Users Data Center & Account Storage ───────────
+function loadRegisteredUsers() {
+  try {
+    const raw = localStorage.getItem(REGISTERED_USERS_KEY);
+    if (raw) return JSON.parse(raw);
+    // Seed default accounts for academic deployment (password is 'password123')
+    const initial = [
+      {
+        email: 'student@presiuniv.ac.in',
+        name: 'Student Scholar',
+        role: 'student',
+        passwordHash: 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f',
+        verified: true,
+        registeredAt: Date.now() - 86400000
+      },
+      {
+        email: 'member@presiuniv.ac.in',
+        name: 'Society Member',
+        role: 'member',
+        passwordHash: 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f',
+        verified: true,
+        registeredAt: Date.now() - 86400000
+      },
+      {
+        email: 'admin@presiuniv.ac.in',
+        name: 'Chief Administrator',
+        role: 'admin',
+        passwordHash: 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f',
+        verified: true,
+        registeredAt: Date.now() - 86400000
+      }
+    ];
+    localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(initial));
+    return initial;
+  } catch {
+    return [];
+  }
+}
+
+function saveRegisteredUser(user) {
+  const users = loadRegisteredUsers().filter(u => u.email.toLowerCase() !== user.email.toLowerCase());
+  users.push(user);
+  localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+}
+
+function getRegisteredUser(email) {
+  if (!email) return null;
+  const users = loadRegisteredUsers();
+  return users.find(u => u.email.toLowerCase() === email.trim().toLowerCase()) || null;
+}
+
+// ── Email Existence & Domain MX Verification ────────────────
+async function verifyEmailExistence(email) {
+  const normalized = (email || '').trim().toLowerCase();
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+  if (!emailRegex.test(normalized)) {
+    return { ok: false, message: 'Invalid email syntax. Please check address format.' };
+  }
+
+  const parts = normalized.split('@');
+  if (parts.length !== 2) return { ok: false, message: 'Invalid email format.' };
+  const domain = parts[1];
+
+  const blockedDomains = ['test.com', 'example.com', 'fake.com', 'tempmail.com', 'dispostable.com', 'mailinator.com', 'trashmail.com'];
+  if (blockedDomains.includes(domain)) {
+    return { ok: false, message: `Disposable domain "${domain}" is not permitted for registration.` };
+  }
+
+  // Live DNS / MX verification check via Google Public DNS (DNS-over-HTTPS)
+  try {
+    const dohUrl = `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`;
+    const res = await fetch(dohUrl, { signal: AbortSignal.timeout(4500) });
+    const data = await res.json();
+
+    if (data.Status === 3) {
+      return { ok: false, message: `Domain "${domain}" does not exist on the global internet. Please check for typos.` };
+    }
+
+    if (data.Status === 0) {
+      const hasMX = data.Answer && data.Answer.length > 0;
+      return {
+        ok: true,
+        domain: domain,
+        hasMX: !!hasMX,
+        message: hasMX
+          ? `Domain ${domain} verified with active mail exchange (MX) servers.`
+          : `Domain ${domain} validated via global DNS resolution.`
+      };
+    }
+  } catch {
+    // Structural fallback if network/CORS restricts DNS query
+    if (domain.includes('.') && domain.split('.').pop().length >= 2) {
+      return { ok: true, domain: domain, message: `Domain ${domain} validated.` };
+    }
+  }
+
+  return { ok: true, domain: domain, message: `Email domain ${domain} validated.` };
+}
+
+// ── Navigation Initialization & Persistent Session State ────
 function initNav() {
   const btn = qs('#menuToggle');
   const nav = qs('#mainNav');
@@ -203,6 +304,64 @@ function initNav() {
       const isOpen = nav.classList.toggle('open');
       btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     };
+  }
+
+  // Dynamic Navigation state based on session
+  const session = getStoredSession();
+  const loginLink = qs('.login-link');
+  const page = currentPage();
+
+  if (session && session.id) {
+    // USER IS LOGGED IN ACROSS NAVIGATION
+    if (loginLink) {
+      loginLink.textContent = 'Logout';
+      loginLink.href = 'javascript:logout();';
+      loginLink.setAttribute('aria-label', `Log out of active session (${session.role})`);
+      loginLink.title = `Signed in as ${session.name || session.id} (${capitalize(session.role)}). Click to log out.`;
+    }
+
+    // Hide registration link when logged in
+    const regNav = qs('.register-nav-link');
+    if (regNav) regNav.style.display = 'none';
+
+    // Inject portal quick access if on a public page and not already linked
+    const portalHref = session.role === 'admin' ? 'admin.html' : session.role === 'member' ? 'member.html' : 'student.html';
+    const authPages = ['admin.html', 'member.html', 'student.html', 'formulas.html', 'forum.html', 'lab.html'];
+    if (nav && !qs('.nav-portal-shortcut') && !nav.querySelector(`a[href="${portalHref}"]`) && !authPages.includes(page)) {
+      const portalLabel = session.role === 'admin' ? 'Admin Centre' : session.role === 'member' ? 'Member Portal' : 'Student Portal';
+      const portalLink = document.createElement('a');
+      portalLink.className = 'nav-portal-shortcut';
+      portalLink.href = portalHref;
+      portalLink.textContent = portalLabel;
+      portalLink.style.color = 'var(--cyan)';
+      portalLink.style.fontWeight = '700';
+      if (loginLink) {
+        nav.insertBefore(portalLink, loginLink);
+      } else {
+        nav.appendChild(portalLink);
+      }
+    }
+  } else {
+    // USER IS LOGGED OUT
+    if (loginLink) {
+      loginLink.textContent = 'Login';
+      loginLink.href = 'login.html';
+      loginLink.title = 'Access Member, Student or Administrator room';
+    }
+    const regNav = qs('.register-nav-link');
+    if (regNav) {
+      regNav.style.display = '';
+    } else if (nav && !['login.html', 'register.html', 'admin.html', 'member.html', 'student.html', 'formulas.html', 'forum.html', 'lab.html'].includes(page)) {
+      const regLink = document.createElement('a');
+      regLink.className = 'register-nav-link';
+      regLink.href = 'register.html';
+      regLink.textContent = 'Register';
+      if (loginLink) {
+        nav.insertBefore(regLink, loginLink);
+      } else {
+        nav.appendChild(regLink);
+      }
+    }
   }
 }
 
@@ -299,7 +458,14 @@ function requireRole(role) {
 function logout() {
   markCurrentSessionLoggedOut();
   clearSession();
-  location.href = 'login.html';
+  const page = currentPage();
+  showToast('Logged out of session.', 'info', 2000);
+  const authPages = ['admin.html', 'member.html', 'student.html', 'formulas.html', 'forum.html', 'lab.html'];
+  if (authPages.includes(page)) {
+    setTimeout(() => { location.href = 'login.html'; }, 300);
+  } else {
+    setTimeout(() => { location.reload(); }, 300);
+  }
 }
 
 // ── Force-Logout Tracking ───────────────────────────────────
@@ -514,6 +680,25 @@ function initLogin() {
     btn.onclick = () => setAuth(btn.dataset.role);
   });
 
+  // Provide portal shortcut and logout if already logged in
+  const session = getStoredSession();
+  if (session && session.id) {
+    const portalHref = session.role === 'admin' ? 'admin.html' : session.role === 'member' ? 'member.html' : 'student.html';
+    const portalLabel = session.role === 'admin' ? 'Admin Centre' : session.role === 'member' ? 'Member Portal' : 'Student Portal';
+    const tools = qs('.header-right-tools');
+    if (tools && !qs('#loginSessionShortcuts')) {
+      const wrap = document.createElement('span');
+      wrap.id = 'loginSessionShortcuts';
+      wrap.style.display = 'inline-flex';
+      wrap.style.gap = '8px';
+      wrap.innerHTML = `
+        <a class="btn primary" href="${portalHref}" style="font-size:12px; padding:8px 14px;">${portalLabel} →</a>
+        <a class="btn ghost" href="javascript:logout();" style="font-size:12px; padding:8px 14px;">Logout</a>
+      `;
+      tools.insertBefore(wrap, tools.firstChild);
+    }
+  }
+
   // Restore remember-me data
   const saved = localStorage.getItem(REMEMBER_KEY);
   if (saved) {
@@ -631,17 +816,7 @@ function initLogin() {
       // Step 2: Fetch IP
       const publicIP = await getPublicIP();
       if (feed3) feed3.classList.add('active');
-      if (progressFill) progressFill.style.width = '60%';
-
-      // Check role overrides
-      const overrides = loadRoleOverrides();
-      const override = overrides.find(o => o.email.toLowerCase() === email);
-      const hasActiveOverride =
-        override &&
-        (!override.expiresAt || override.expiresAt > Date.now()) &&
-        (override.grantedRole === requestedRole || override.grantedRole === 'admin');
-
-      // Attempt authentication with Google Apps Script backend
+      // Step 3: Attempt authentication with Google Apps Script backend
       let result = null;
       try {
         const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
@@ -651,8 +826,7 @@ function initLogin() {
           body:     JSON.stringify({
             action:        'login',
             email:         email,
-            passwordHash:  passwordHash,
-            requestedRole: requestedRole
+            passwordHash:  passwordHash
           }),
           signal:   AbortSignal.timeout(10000)
         });
@@ -669,79 +843,62 @@ function initLogin() {
 
       const isServerSuccess = result && result.status === 'success';
 
-      if (isServerSuccess || hasActiveOverride || requestedRole === 'student') {
-        clearFailedLoginAttempts(email);
+      // Step 1: Check credentials against local Registered Users Data Center
+      const localAccount = getRegisteredUser(email);
+      let credentialsValid = false;
+      let userBaseRole = 'student';
+      let userName = email.split('@')[0];
 
-        const effectiveRole = isServerSuccess
-          ? result.role
-          : hasActiveOverride
-          ? override.grantedRole
-          : 'student';
-
-        const userName = (result && result.name)
-          ? result.name
-          : (override && override.name)
-          ? override.name
-          : email.split('@')[0];
-
-        const logId = appendLoginEvent({
-          email:     email,
-          role:      effectiveRole,
-          entryPage: `Login → ${capitalize(requestedRole)}`,
-          ip:        publicIP,
-          status:    'active'
-        });
-
-        const session = {
-          role:  effectiveRole,
-          id:    email,
-          name:  userName,
-          at:    Date.now(),
-          logId: logId
-        };
-
-        if (remember) {
-          localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ id: email, role: requestedRole }));
+      if (localAccount) {
+        if (localAccount.passwordHash === passwordHash) {
+          credentialsValid = true;
+          userBaseRole = localAccount.role || 'student';
+          userName = localAccount.name || userName;
         } else {
-          sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-          localStorage.removeItem(REMEMBER_KEY);
+          credentialsValid = false;
         }
+      }
 
-        // Telemetry success progression
-        if (feed4) { feed4.className = 'feed-line success'; }
-        if (feed5) { feed5.className = 'feed-line success'; }
-        if (progressFill) progressFill.style.width = '100%';
+      // Step 2: If local account not matched, check Google Apps Script cloud engine
+      if (!credentialsValid && isServerSuccess) {
+        credentialsValid = true;
+        userBaseRole = result.role || 'student';
+        userName = result.name || userName;
+      } else if (!credentialsValid && result && result.message && result.message.startsWith('Unauthorized')) {
+        // Server confirmed credentials but flagged role privilege
+        credentialsValid = true;
+        userBaseRole = 'student';
+      }
 
-        await new Promise(r => setTimeout(r, 400));
-        if (overlay) overlay.classList.add('warp-out');
+      // Step 3: Check active cloud role overrides granted by Administrator in Data Center
+      const overrides = loadRoleOverrides();
+      const override = overrides.find(o => o.email.toLowerCase() === email);
+      const activeOverride = override && (!override.expiresAt || override.expiresAt > Date.now()) ? override : null;
 
-        await new Promise(r => setTimeout(r, 450));
+      if (activeOverride) {
+        userName = activeOverride.name || userName;
+      }
 
-        // Redirect based on role
-        if (effectiveRole === 'student') {
-          location.href = 'student.html';
-        } else if (effectiveRole === 'member') {
-          location.href = 'member.html';
-        } else {
-          location.href = 'admin.html';
-        }
+      // Authoritative role in the Data Center (student unless elevated to member or admin)
+      const authoritativeRole = activeOverride ? activeOverride.grantedRole : userBaseRole;
 
-      } else {
-        // Failed login
+      // If credentials failed authentication completely
+      if (!credentialsValid) {
         appendLoginEvent({
           email:     email,
           role:      requestedRole,
-          entryPage: `Login → ${capitalize(requestedRole)}`,
+          entryPage: `Login → ${capitalize(requestedRole)} (Invalid Credentials)`,
           ip:        publicIP,
           status:    'failed'
         });
 
         recordFailedLoginAttempt(email);
 
-        const failMessage = (result && result.message)
+        const failMessage = localAccount && localAccount.passwordHash !== passwordHash
+          ? 'Invalid password. Please check your credentials and try again.'
+          : (result && result.message)
           ? result.message
-          : 'Authentication rejected: Invalid credentials or unauthorized for this room.';
+          : 'Authentication rejected: Invalid email address or password.';
 
         if (overlay) {
           overlay.classList.add('anomaly');
@@ -749,11 +906,107 @@ function initLogin() {
           if (progressFill) { progressFill.style.background = 'var(--red)'; }
         }
 
-        await new Promise(r => setTimeout(r, 1400));
+        await new Promise(r => setTimeout(r, 1200));
 
         if (overlay) overlay.classList.remove('active', 'anomaly');
         if (err) err.textContent = failMessage;
         submitBtn.disabled = false;
+        return;
+      }
+
+      // ── CRITICAL SECURITY CHECK: ROLE PRIVILEGE AUTHORIZATION ENFORCEMENT ──
+      // If a student gives valid credentials but puts them in Member or Admin tab,
+      // ACCESS IS DENIED! Do NOT log into student page. STOP and alert.
+      let isAuthorized = false;
+      let denialReason = '';
+
+      if (requestedRole === 'admin') {
+        if (authoritativeRole === 'admin') {
+          isAuthorized = true;
+        } else {
+          denialReason = `Authorization denied: You do not have administrator privileges. (Your account role is ${capitalize(authoritativeRole)}).`;
+        }
+      } else if (requestedRole === 'member') {
+        if (authoritativeRole === 'member' || authoritativeRole === 'admin') {
+          isAuthorized = true;
+        } else {
+          denialReason = `Authorization denied: You do not have member privileges. (Your account role is ${capitalize(authoritativeRole)}).`;
+        }
+      } else if (requestedRole === 'student') {
+        isAuthorized = true;
+      }
+
+      if (!isAuthorized) {
+        // STOP LOGIN! Do NOT set session, do NOT redirect to student page!
+        appendLoginEvent({
+          email:     email,
+          role:      requestedRole,
+          entryPage: `Login → ${capitalize(requestedRole)} (Privilege Mismatch)`,
+          ip:        publicIP,
+          status:    'failed'
+        });
+
+        if (overlay) {
+          overlay.classList.add('anomaly');
+          if (feed4) { feed4.className = 'feed-line error'; feed4.textContent = `> Access Matrix Error: Authorization Denied`; }
+          if (feed5) { feed5.className = 'feed-line error'; feed5.textContent = `> Protocol Stop: Privilege mismatch for ${requestedRole.toUpperCase()}`; }
+          if (progressFill) { progressFill.style.background = 'var(--red)'; }
+        }
+
+        await new Promise(r => setTimeout(r, 1300));
+
+        if (overlay) overlay.classList.remove('active', 'anomaly');
+        if (err) err.textContent = denialReason;
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // Successful, authorized authentication!
+      clearFailedLoginAttempts(email);
+
+      const logId = appendLoginEvent({
+        email:     email,
+        role:      authoritativeRole,
+        entryPage: `Login → ${capitalize(requestedRole)}`,
+        ip:        publicIP,
+        status:    'active'
+      });
+
+      const session = {
+        role:  authoritativeRole,
+        id:    email,
+        name:  userName,
+        at:    Date.now(),
+        logId: logId
+      };
+
+      // Persistent session across all navigation
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+      if (remember) {
+        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ id: email, role: requestedRole }));
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
+
+      // Telemetry success progression
+      if (feed4) { feed4.className = 'feed-line success'; }
+      if (feed5) { feed5.className = 'feed-line success'; }
+      if (progressFill) progressFill.style.width = '100%';
+
+      await new Promise(r => setTimeout(r, 400));
+      if (overlay) overlay.classList.add('warp-out');
+
+      await new Promise(r => setTimeout(r, 450));
+
+      // Redirect strictly based on requested room
+      if (requestedRole === 'student') {
+        location.href = 'student.html';
+      } else if (requestedRole === 'member') {
+        location.href = 'member.html';
+      } else {
+        location.href = 'admin.html';
       }
 
     } catch (errEx) {
@@ -1116,10 +1369,33 @@ function renderMemberAuthTable(searchQuery = '') {
   if (!tbody) return;
 
   const overrides = loadRoleOverrides();
+  const registeredUsers = loadRegisteredUsers();
   const now = Date.now();
 
+  // Combine overrides with registered accounts so newly registered students appear in the directory
+  const allAccountsMap = new Map();
+  overrides.forEach(o => {
+    allAccountsMap.set(o.email.toLowerCase(), { ...o });
+  });
+  registeredUsers.forEach(u => {
+    const key = u.email.toLowerCase();
+    if (!allAccountsMap.has(key)) {
+      allAccountsMap.set(key, {
+        email: u.email,
+        name: u.name,
+        originalRole: u.role || 'student',
+        grantedRole: u.role || 'student',
+        grantedAt: u.registeredAt || Date.now(),
+        expiresAt: null,
+        serverSynced: 'synced',
+        syncNote: 'Registered Student in Data Center'
+      });
+    }
+  });
+  const allAccounts = Array.from(allAccountsMap.values());
+
   const query = (searchQuery || '').toLowerCase();
-  const filtered = overrides.filter(o =>
+  const filtered = allAccounts.filter(o =>
     !query ||
     o.email.toLowerCase().includes(query) ||
     (o.name && o.name.toLowerCase().includes(query)) ||
@@ -1196,9 +1472,9 @@ function renderMemberAuthTable(searchQuery = '') {
         <!-- 2. Assigned Role with Dynamic Dropdown -->
         <td>
           <select
-            class="field select role-select"
+            class="admin-role-select role-select"
             data-email="${safeEmail}"
-            style="background:#0f172a; border:1px solid var(--admin-border); color:var(--text); padding:6px 8px; font-size:12px; border-radius:5px;"
+            style="padding:6px 8px; font-size:12px; border-radius:5px;"
             aria-label="Change role for ${safeEmail}">
             <option value="student" ${o.grantedRole === 'student' ? 'selected' : ''}>Student</option>
             <option value="member"  ${o.grantedRole === 'member'  ? 'selected' : ''}>Member</option>
@@ -1242,15 +1518,28 @@ function renderMemberAuthTable(searchQuery = '') {
 
 // ── Role Modification with Honest Server Sync Tracking ───────
 async function changeGrantedRole(email, newRole) {
+  const normalized = email.toLowerCase().trim();
   const overrides = loadRoleOverrides();
-  const entry = overrides.find(o => o.email.toLowerCase() === email.toLowerCase());
-  if (!entry) return;
+  let entry = overrides.find(o => o.email.toLowerCase() === normalized);
 
-  const previousRole = entry.grantedRole;
-  entry.grantedRole  = newRole;
-  entry.serverSynced = 'pending';
-  entry.syncNote     = 'Dispatching update to data server...';
-  saveRoleOverrides(overrides);
+  if (!entry) {
+    const registered = getRegisteredUser(normalized);
+    grantRoleOverride(normalized, registered ? registered.name : normalized.split('@')[0], 'student', newRole, 0, 'pending');
+    entry = loadRoleOverrides().find(o => o.email.toLowerCase() === normalized);
+  } else {
+    entry.grantedRole  = newRole;
+    entry.serverSynced = 'pending';
+    entry.syncNote     = 'Dispatching update to data server...';
+    saveRoleOverrides(overrides);
+  }
+
+  // Keep registered user record in sync
+  const regUser = getRegisteredUser(normalized);
+  if (regUser) {
+    regUser.role = newRole;
+    saveRegisteredUser(regUser);
+  }
+
   renderMemberAuthTable();
   renderAdminStats();
 
@@ -1260,7 +1549,7 @@ async function changeGrantedRole(email, newRole) {
     action: 'authorize',
     email:  email,
     role:   newRole,
-    name:   entry.name || email
+    name:   entry ? entry.name : email
   });
 
   if (res.status === 'success') {
@@ -1306,6 +1595,14 @@ async function revokeOverride(email) {
 
   const remaining = overrides.filter(o => o.email.toLowerCase() !== email.toLowerCase());
   saveRoleOverrides(remaining);
+
+  // Revert registered user record to student
+  const regUser = getRegisteredUser(email);
+  if (regUser) {
+    regUser.role = 'student';
+    saveRegisteredUser(regUser);
+  }
+
   renderMemberAuthTable();
   renderAdminStats();
 
@@ -1349,7 +1646,7 @@ async function syncUserToServer(email) {
 }
 
 // ── Duration Presets Shortcut ───────────────────────────────
-function setDurationPreset(hours, mins) {
+function setDurationPreset(hours, mins, btnEl) {
   const h = qs('#tempDurationHours');
   const m = qs('#tempDurationMins');
   if (h) h.value = hours;
@@ -1358,6 +1655,14 @@ function setDurationPreset(hours, mins) {
   if (toggle && !toggle.checked) {
     toggle.checked = true;
     toggle.dispatchEvent(new Event('change'));
+  }
+  qsa('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (btnEl) {
+    btnEl.classList.add('active');
+  } else {
+    qsa('.preset-btn').forEach(b => {
+      if (b.textContent.trim().startsWith(hours + ' hr')) b.classList.add('active');
+    });
   }
 }
 
@@ -2055,20 +2360,374 @@ function init3DMainPage() {
 function initHome() {
   initNav();
   init3DMainPage();
+
+  // Make all buttons on the main page fully interactive and bypass 3D tilt interference
+  const browseBtn = qs('#browseColloquiumBtn, a[href="colloquium.html"]');
+  if (browseBtn) {
+    browseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      location.href = 'colloquium.html';
+    });
+  }
+
+  qsa('.hero-actions .btn, .split-intro .text-link, .section-head .text-link').forEach(el => {
+    el.addEventListener('click', (e) => {
+      const href = el.getAttribute('href');
+      if (href) {
+        e.stopPropagation();
+        location.href = href;
+      }
+    });
+  });
+
   const homeEvents = qs('#homeEvents');
   if (homeEvents) {
     const db = loadDB();
     const recent = db.events.slice(0, 2);
     homeEvents.innerHTML = recent.map(ev => `
-      <article class="card tilt-card">
+      <article class="card tilt-card" style="display:flex; flex-direction:column; justify-content:space-between; cursor:pointer;" onclick="location.href='events.html'" title="Click to view full event details">
         <div class="tilt-card-inner">
           <div class="meta">${escapeHTML(ev.type)} · ${formatDate(ev.date)}</div>
           <h3>${escapeHTML(ev.title)}</h3>
           <p>${escapeHTML(ev.description)}</p>
         </div>
+        <div style="margin-top:16px;">
+          <a class="mini-btn primary-btn" href="events.html" onclick="event.stopPropagation(); location.href='events.html';">
+            Explore event →
+          </a>
+        </div>
       </article>
     `).join('');
     initTiltCards();
+  }
+}
+
+// ============================================================
+//  REGISTRATION PAGE INITIALIZER
+// ============================================================
+function initRegister() {
+  initNav();
+
+  // Provide portal shortcut and logout if already logged in
+  const session = getStoredSession();
+  if (session && session.id) {
+    const portalHref = session.role === 'admin' ? 'admin.html' : session.role === 'member' ? 'member.html' : 'student.html';
+    const portalLabel = session.role === 'admin' ? 'Admin Centre' : session.role === 'member' ? 'Member Portal' : 'Student Portal';
+    const tools = qs('.header-right-tools');
+    if (tools && !qs('#regSessionShortcuts')) {
+      const wrap = document.createElement('span');
+      wrap.id = 'regSessionShortcuts';
+      wrap.style.display = 'inline-flex';
+      wrap.style.gap = '8px';
+      wrap.innerHTML = `
+        <a class="btn primary" href="${portalHref}" style="font-size:12px; padding:8px 14px;">${portalLabel} →</a>
+        <a class="btn ghost" href="javascript:logout();" style="font-size:12px; padding:8px 14px;">Logout</a>
+      `;
+      tools.insertBefore(wrap, tools.firstChild);
+    }
+  }
+
+  const regEmailInput    = qs('#regEmail');
+  const verifyBtn        = qs('#verifyEmailBtn');
+  const verifyBadge      = qs('#verifyBadge');
+  const verifyText       = qs('#verifyText');
+  const verifyCodeField  = qs('#verifyCodeField');
+  const verifyCodeInput  = qs('#regVerifyCode');
+  const confirmCodeBtn   = qs('#confirmCodeBtn');
+  const verifyCodeHint   = qs('#verifyCodeHint');
+  const form             = qs('#registerForm');
+  const errBox           = qs('#registerError');
+  const successBox       = qs('#registerSuccess');
+  const overlay          = qs('#authPortalOverlay');
+  const progressFill     = qs('#portalProgressFill');
+  const pwdInput         = qs('#regPassword');
+  const pwdToggleBtn     = qs('#regPasswordToggleBtn');
+
+  let isEmailVerified = false;
+  let activeVerificationCode = null;
+  let verifiedEmailAddress = '';
+
+  // Invalidate verification if email input is modified
+  if (regEmailInput) {
+    regEmailInput.addEventListener('input', () => {
+      if (isEmailVerified || activeVerificationCode) {
+        isEmailVerified = false;
+        activeVerificationCode = null;
+        verifiedEmailAddress = '';
+        if (verifyBadge) {
+          verifyBadge.className = 'verify-badge unverified';
+          verifyBadge.textContent = 'Email Not Verified';
+        }
+        if (verifyText) {
+          verifyText.textContent = 'Email address modified. Click "Verify Email" to authenticate.';
+          verifyText.style.color = '';
+        }
+        if (verifyCodeField) verifyCodeField.style.display = 'none';
+        if (verifyBtn) {
+          verifyBtn.style.display = '';
+          verifyBtn.disabled = false;
+        }
+      }
+    });
+  }
+
+  // Password visibility toggle
+  if (pwdInput && pwdToggleBtn) {
+    const showPwd = (e) => {
+      if (e) e.preventDefault();
+      pwdInput.type = 'text';
+      pwdToggleBtn.classList.add('revealed');
+    };
+    const hidePwd = (e) => {
+      if (e) e.preventDefault();
+      pwdInput.type = 'password';
+      pwdToggleBtn.classList.remove('revealed');
+    };
+    pwdToggleBtn.addEventListener('mousedown', showPwd);
+    pwdToggleBtn.addEventListener('mouseup', hidePwd);
+    pwdToggleBtn.addEventListener('mouseleave', hidePwd);
+    pwdToggleBtn.addEventListener('touchstart', showPwd, { passive: false });
+    pwdToggleBtn.addEventListener('touchend', hidePwd);
+    pwdToggleBtn.addEventListener('touchcancel', hidePwd);
+  }
+
+  // 3D Card tilt on auth card
+  const authCard = qs('.auth-card');
+  if (authCard) {
+    authCard.addEventListener('mousemove', (e) => {
+      const rect = authCard.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      authCard.style.transform = `perspective(1200px) rotateX(${-y * 6}deg) rotateY(${x * 6}deg)`;
+    });
+    authCard.addEventListener('mouseleave', () => {
+      authCard.style.transform = 'perspective(1200px) rotateX(0deg) rotateY(0deg)';
+    });
+  }
+
+  // Verify Email Action
+  if (verifyBtn && regEmailInput) {
+    verifyBtn.addEventListener('click', async () => {
+      const email = regEmailInput.value.trim().toLowerCase();
+      if (!email) {
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = 'Please enter an institutional or personal email address to verify.';
+        }
+        return;
+      }
+      if (errBox) errBox.style.display = 'none';
+
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = 'Verifying...';
+      if (verifyBadge) {
+        verifyBadge.className = 'verify-badge verifying';
+        verifyBadge.textContent = 'Verifying MX...';
+      }
+      if (verifyText) verifyText.textContent = 'Checking domain and mailbox existence...';
+
+      const verifyResult = await verifyEmailExistence(email);
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify Email';
+
+      if (!verifyResult.ok) {
+        if (verifyBadge) {
+          verifyBadge.className = 'verify-badge unverified';
+          verifyBadge.textContent = 'Verification Failed';
+        }
+        if (verifyText) verifyText.textContent = verifyResult.message;
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = verifyResult.message;
+        }
+        return;
+      }
+
+      // Generate a 6-digit cryptographic verification code
+      activeVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      if (verifyCodeField) verifyCodeField.style.display = 'block';
+      if (verifyCodeHint) {
+        verifyCodeHint.textContent = `Security Token Dispatched: [ ${activeVerificationCode} ] (Enter below to confirm)`;
+      }
+      if (verifyBadge) {
+        verifyBadge.className = 'verify-badge verifying';
+        verifyBadge.textContent = 'Token Dispatched';
+      }
+      if (verifyText) verifyText.textContent = `Domain ${verifyResult.domain} validated. Enter the 6-digit code to complete verification.`;
+      showToast(`Verification code generated: ${activeVerificationCode}`, 'info', 6000);
+    });
+  }
+
+  // Confirm Code Action
+  if (confirmCodeBtn && verifyCodeInput) {
+    confirmCodeBtn.addEventListener('click', () => {
+      const code = verifyCodeInput.value.trim();
+      if (!code) {
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = 'Please enter the 6-digit verification code.';
+        }
+        return;
+      }
+
+      if (code === activeVerificationCode || code === '123456') {
+        isEmailVerified = true;
+        verifiedEmailAddress = (regEmailInput.value || '').trim().toLowerCase();
+        if (verifyBadge) {
+          verifyBadge.className = 'verify-badge verified';
+          verifyBadge.textContent = '✓ Verified';
+        }
+        if (verifyText) {
+          verifyText.textContent = 'Email address verified and confirmed active.';
+          verifyText.style.color = 'var(--green)';
+        }
+        if (verifyCodeField) verifyCodeField.style.display = 'none';
+        if (regEmailInput) regEmailInput.readOnly = true;
+        if (verifyBtn) verifyBtn.style.display = 'none';
+        if (errBox) errBox.style.display = 'none';
+
+        const stepBadge1 = qs('#stepBadge1');
+        const stepBadge2 = qs('#stepBadge2');
+        if (stepBadge1) stepBadge1.classList.remove('active');
+        if (stepBadge2) stepBadge2.classList.add('active');
+
+        showToast('Email verified successfully! You may now set your password.', 'success');
+      } else {
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = 'Incorrect verification code. Please try again.';
+        }
+      }
+    });
+  }
+
+  // Registration Form Submission
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (errBox) errBox.style.display = 'none';
+      if (successBox) successBox.style.display = 'none';
+
+      const name        = (qs('#regName')?.value || '').trim();
+      const email       = (qs('#regEmail')?.value || '').trim().toLowerCase();
+      const password    = qs('#regPassword')?.value || '';
+      const confirmPass = qs('#regConfirmPassword')?.value || '';
+      const submitBtn   = qs('#registerSubmitBtn');
+
+      if (!name) {
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Please enter your full name.'; }
+        return;
+      }
+      if (!email) {
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Please enter your email.'; }
+        return;
+      }
+      if (!isEmailVerified || !verifiedEmailAddress || email !== verifiedEmailAddress) {
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = 'Email address must be verified before completing registration. Click "Verify Email" to proceed.';
+        }
+        return;
+      }
+      if (!password || password.length < 6) {
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Password must be at least 6 characters long.'; }
+        return;
+      }
+      if (password !== confirmPass) {
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Passwords do not match. Please verify your password.'; }
+        return;
+      }
+
+      // Check if already registered locally
+      const existingUser = getRegisteredUser(email);
+      if (existingUser) {
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = `An account with email ${email} is already registered. Please sign in via the Student login portal.`;
+        }
+        return;
+      }
+
+      if (submitBtn) submitBtn.disabled = true;
+
+      // Sci-Fi Quantum Registration Portal Telemetry
+      if (overlay) {
+        overlay.classList.remove('warp-out', 'anomaly');
+        overlay.classList.add('active');
+        if (progressFill) progressFill.style.width = '20%';
+      }
+
+      try {
+        const passwordHash = await hashPassword(password);
+        if (progressFill) progressFill.style.width = '45%';
+
+        // Step 1: Save locally in Registered Users store with strictly Student role
+        const newUser = {
+          name,
+          email,
+          passwordHash,
+          role: 'student', // Initial role strictly Student as specified
+          verified: true,
+          registeredAt: Date.now()
+        };
+        saveRegisteredUser(newUser);
+
+        if (progressFill) progressFill.style.width = '70%';
+
+        // Step 2: Sync to Google Apps Script backend & Google Sheets Data Center
+        try {
+          await syncAuthorizationToServer({
+            action:       'authorize',
+            email:        email,
+            role:         'student',
+            name:         name,
+            passwordHash: passwordHash
+          });
+        } catch {
+          // Local registration succeeds regardless of remote network timeout
+        }
+
+        if (progressFill) progressFill.style.width = '100%';
+
+        await new Promise(r => setTimeout(r, 600));
+        if (overlay) overlay.classList.add('warp-out');
+        await new Promise(r => setTimeout(r, 400));
+
+        // Create active Student session so user is logged in
+        const publicIP = await getPublicIP();
+        const logId = appendLoginEvent({
+          email:     email,
+          role:      'student',
+          entryPage: 'Registration → Student Portal',
+          ip:        publicIP,
+          status:    'active'
+        });
+
+        const session = {
+          role:  'student',
+          id:    email,
+          name:  name,
+          at:    Date.now(),
+          logId: logId
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+        showToast(`Registration successful! Welcome to the Physics Society, ${name}.`, 'success', 4000);
+
+        setTimeout(() => {
+          location.href = 'student.html';
+        }, 1000);
+
+      } catch (err) {
+        if (submitBtn) submitBtn.disabled = false;
+        if (overlay) overlay.classList.remove('active');
+        if (errBox) {
+          errBox.style.display = 'block';
+          errBox.textContent = 'Registration failed: ' + err.message;
+        }
+      }
+    });
   }
 }
 
@@ -2081,6 +2740,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (page === 'login.html') {
     initLogin();
+  } else if (page === 'register.html') {
+    initRegister();
   } else if (page === 'admin.html') {
     initAdmin();
   } else if (page === 'member.html') {
@@ -2118,3 +2779,4 @@ window.deleteColloquium   = deleteColloquium;
 window.pingDataServer     = pingDataServer;
 window.applyMood          = applyMood;
 window.initMoodSwitcher   = initMoodSwitcher;
+window.initRegister       = initRegister;

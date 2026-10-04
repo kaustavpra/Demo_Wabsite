@@ -133,11 +133,14 @@
               <input id="authEmail" type="email" placeholder="user@presiuniv.ac.in" required autocomplete="email">
             </div>
 
-            <!-- Temporary Access Checkbox -->
+            <!-- Temporary Access Switch -->
             <div class="field full">
-              <label for="tempAccessEnabled" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-                <input type="checkbox" id="tempAccessEnabled" style="accent-color:var(--cyan); width:18px; height:18px;">
-                <span style="font-size:13px; text-transform:none; letter-spacing:normal; color:var(--text);">
+              <label class="switch-wrapper" for="tempAccessEnabled">
+                <span class="switch">
+                  <input type="checkbox" id="tempAccessEnabled">
+                  <span class="switch-slider"></span>
+                </span>
+                <span style="font-size:13px; text-transform:none; letter-spacing:normal; color:var(--text); font-weight:600;">
                   Grant temporary access (automatically reverts after duration)
                 </span>
               </label>
@@ -148,9 +151,9 @@
               <label for="tempDurationHours">Duration (Hours)</label>
               <input id="tempDurationHours" type="number" min="0" max="72" value="1" placeholder="1">
               <div class="duration-presets" aria-label="Preset hour shortcuts">
-                <button type="button" class="preset-btn" onclick="setDurationPreset(1, 0)">1 hr</button>
-                <button type="button" class="preset-btn" onclick="setDurationPreset(4, 0)">4 hrs</button>
-                <button type="button" class="preset-btn" onclick="setDurationPreset(24, 0)">24 hrs</button>
+                <button type="button" class="preset-btn active" onclick="setDurationPreset(1, 0, this)">1 hr</button>
+                <button type="button" class="preset-btn" onclick="setDurationPreset(4, 0, this)">4 hrs</button>
+                <button type="button" class="preset-btn" onclick="setDurationPreset(24, 0, this)">24 hrs</button>
               </div>
             </div>
 
@@ -184,7 +187,8 @@
                 id="searchAuthUsers"
                 type="search"
                 placeholder="Search accounts..."
-                style="background:#0f172a; border:1px solid var(--admin-border); color:var(--text); padding:5px 9px; font-size:12px; border-radius:5px; width:160px;"
+                class="admin-search-input"
+                style="width:160px;"
                 aria-label="Filter authorized accounts by name or email">
               <span style="font-size:11px; font-family:var(--admin-mono); color:var(--muted);" id="authTableCount">0 accounts</span>
             </div>
@@ -218,8 +222,11 @@
 
         <form id="securityForm">
           <div class="field" style="margin-bottom:16px;">
-            <label for="sec2fa" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-              <input id="sec2fa" type="checkbox" style="accent-color:var(--cyan); width:18px; height:18px; margin-top:2px;">
+            <label class="switch-wrapper" for="sec2fa">
+              <span class="switch">
+                <input id="sec2fa" type="checkbox">
+                <span class="switch-slider"></span>
+              </span>
               <span style="text-transform:none; letter-spacing:normal; color:var(--text); font-size:13px;">
                 <strong>Require Two-Factor Authentication (2FA)</strong><br>
                 <small style="color:var(--muted);">Enforces secondary TOTP validation for elevated Member and Admin roles.</small>
@@ -228,8 +235,11 @@
           </div>
 
           <div class="field" style="margin-bottom:16px;">
-            <label for="secAlerts" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-              <input id="secAlerts" type="checkbox" checked style="accent-color:var(--cyan); width:18px; height:18px; margin-top:2px;">
+            <label class="switch-wrapper" for="secAlerts">
+              <span class="switch">
+                <input id="secAlerts" type="checkbox" checked>
+                <span class="switch-slider"></span>
+              </span>
               <span style="text-transform:none; letter-spacing:normal; color:var(--text); font-size:13px;">
                 <strong>Real-Time Login Alerts &amp; Auditing</strong><br>
                 <small style="color:var(--muted);">Log IP addresses, device signatures, and trigger notifications on anomalous logins.</small>
@@ -238,8 +248,11 @@
           </div>
 
           <div class="field" style="margin-bottom:16px;">
-            <label for="secRateLimit" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-              <input id="secRateLimit" type="checkbox" checked style="accent-color:var(--cyan); width:18px; height:18px; margin-top:2px;">
+            <label class="switch-wrapper" for="secRateLimit">
+              <span class="switch">
+                <input id="secRateLimit" type="checkbox" checked>
+                <span class="switch-slider"></span>
+              </span>
               <span style="text-transform:none; letter-spacing:normal; color:var(--text); font-size:13px;">
                 <strong>Brute-Force Rate Limiting</strong><br>
                 <small style="color:var(--muted);">Temporarily lock account login after 5 failed authentication attempts for 15 minutes.</small>
@@ -278,7 +291,7 @@
         </div>
 
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <select id="sessionFilterRole" class="field select" style="background:#0f172a; border:1px solid var(--admin-border); color:var(--text); padding:7px 10px; font-size:12px; border-radius:5px;" aria-label="Filter sessions by role">
+          <select id="sessionFilterRole" class="admin-filter-select" aria-label="Filter sessions by role">
             <option value="all">All Roles</option>
             <option value="admin">Admin</option>
             <option value="member">Member</option>
