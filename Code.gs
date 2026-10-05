@@ -15,7 +15,7 @@ function doPost(e) {
     let sheet = ss.getSheetByName("Users") || ss.getSheetByName("Database") || ss.getSheets()[0];
     
     // Ensure header row exists if sheet is empty
-    if (sheet.getLastRowNum() === 0) {
+    if (sheet.getLastRow() === 0) {
       sheet.appendRow(["Email", "PasswordHash", "Role", "Name", "Overwrite Role", "Permanent"]);
     }
 
