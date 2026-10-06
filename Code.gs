@@ -4,6 +4,16 @@
 //  Handles: Login, Roles, Overwrite Role, Email OTP, 2FA, Page Data
 // ============================================================
 
+function doGet(e) {
+  const result = {
+    status: 'online',
+    service: 'Presidency University Physics Society (PUPS) API',
+    timestamp: new Date().toISOString()
+  };
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -241,3 +251,4 @@ function handleGetPageData(ss, data) {
   }
   return { status: 'error', message: 'Page content not found.' };
 }
+function testMail() { MailApp.sendEmail("test@example.com", "test", "test"); }
