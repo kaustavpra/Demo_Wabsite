@@ -2,8 +2,8 @@
    Presidency University Physics Society  |  Global Stylesheet
    ============================================================ */
 
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* Google Fonts (including Academic, Modern, Editorial, Cyber, Cinematic, and Chalkboard styles) */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Cinzel:wght@500;700;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Courier+Prime:wght@400;700&family=DM+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap');
 
 /* ── Typography & Design tokens ──────────────────────────── */
 :root {
@@ -34,7 +34,28 @@ html[data-font-preset="editorial"] {
   --font-sans:    'Inter', sans-serif;
 }
 
-/* Preset 4: Minimalist Clean */
+/* Preset 4: Cyber Sci-Fi Physics (Futuristic Techno) */
+html[data-font-preset="cyber"] {
+  --font-heading: 'Orbitron', -apple-system, sans-serif;
+  --font-mono:    'Share Tech Mono', monospace;
+  --font-sans:    'Inter', sans-serif;
+}
+
+/* Preset 5: Cinematic Classical (Roman Antiquity) */
+html[data-font-preset="cinematic"] {
+  --font-heading: 'Cinzel', Georgia, serif;
+  --font-mono:    'Space Mono', monospace;
+  --font-sans:    'Inter', sans-serif;
+}
+
+/* Preset 6: Chalkboard Lecture (Handwritten Physics Notes) */
+html[data-font-preset="chalkboard"] {
+  --font-heading: 'Caveat', cursive, sans-serif;
+  --font-mono:    'Courier Prime', monospace;
+  --font-sans:    'Plus Jakarta Sans', sans-serif;
+}
+
+/* Preset 7: Minimalist Clean */
 html[data-font-preset="minimal"] {
   --font-heading: 'Inter', -apple-system, sans-serif;
   --font-mono:    'DM Mono', monospace;
@@ -223,6 +244,14 @@ h1 em, h2 em, h3 em, h4 em,
 .cradle-ball-5 {
   transform-origin: 120px 11px;
   animation: cradle-swing-right 1.35s infinite;
+}
+
+.newtons-cradle-wrap lottie-player {
+  width: 130px;
+  height: 130px;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
 }
 
 .newtons-cradle-caption {
@@ -489,6 +518,61 @@ select {
 .btn.ghost:active {
   transform: perspective(600px) translateY(3px) translateZ(-2px);
   box-shadow: 0 1px 0 var(--btn-ghost-depth), 0 3px 6px rgba(0, 0, 0, 0.25);
+}
+
+.action-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 8px 18px;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease, background 0.15s ease;
+  user-select: none;
+}
+
+.action-link-btn.register {
+  background: var(--cyan);
+  color: #06111e;
+  border: 1px solid var(--cyan);
+  box-shadow: 0 3px 0 rgba(2, 132, 199, 0.6), 0 4px 12px var(--cyan-glow);
+}
+
+.action-link-btn.register:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 rgba(2, 132, 199, 0.7), 0 6px 18px var(--cyan-glow);
+  filter: brightness(1.1);
+  color: #030a12;
+}
+
+.action-link-btn.register:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(2, 132, 199, 0.5);
+}
+
+.action-link-btn.youtube {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  box-shadow: 0 3px 0 rgba(185, 28, 28, 0.4);
+}
+
+.action-link-btn.youtube:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.75);
+  color: #fee2e2;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 rgba(185, 28, 28, 0.5), 0 6px 18px rgba(239, 68, 68, 0.3);
+}
+
+.action-link-btn.youtube:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(185, 28, 28, 0.3);
 }
 
 /* ── Hero visual 3D Space ────────────────────────────────── */

@@ -111,10 +111,10 @@
         <form id="authForm" novalidate>
           <div class="form-grid">
 
-            <!-- Full Name -->
+            <!-- Email / ID -->
             <div class="field">
-              <label for="authName">Full Name</label>
-              <input id="authName" type="text" placeholder="e.g. Dr. Aritra Bakshi" required autocomplete="name">
+              <label for="authEmail">Institutional Email / ID</label>
+              <input id="authEmail" type="email" placeholder="user@presiuniv.ac.in" required autocomplete="email">
             </div>
 
             <!-- Role Assignment -->
@@ -125,12 +125,6 @@
                 <option value="member" selected>Member (Manage Content &amp; Metrics)</option>
                 <option value="admin">Administrator (Full System Control)</option>
               </select>
-            </div>
-
-            <!-- Email / ID -->
-            <div class="field full">
-              <label for="authEmail">Institutional Email / ID</label>
-              <input id="authEmail" type="email" placeholder="user@presiuniv.ac.in" required autocomplete="email">
             </div>
 
             <!-- Temporary Access Switch -->
@@ -304,6 +298,9 @@
                 <option value="academic" selected>🌟 Classic Academic (Default - Team Page Style: Cormorant Garamond &amp; IBM Plex Mono)</option>
                 <option value="modern">🚀 Modern Scientific (Plus Jakarta Sans &amp; JetBrains Mono)</option>
                 <option value="editorial">📜 Editorial Journal (Playfair Display &amp; DM Mono)</option>
+                <option value="cyber">🪐 Cyber Sci-Fi Physics (Orbitron &amp; Share Tech Mono)</option>
+                <option value="cinematic">🏛️ Cinematic Classical (Cinzel &amp; Space Mono)</option>
+                <option value="chalkboard">✏️ Chalkboard Physics Notes (Caveat &amp; Courier Prime)</option>
                 <option value="minimal">⚡ Minimalist Clean (Inter &amp; DM Mono)</option>
               </select>
               <small style="color:var(--muted); font-size:11px; margin-top:6px; display:block;">
@@ -436,6 +433,7 @@
     <div>© 2026 Presidency University</div>
   </footer>
 
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

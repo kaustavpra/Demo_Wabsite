@@ -741,43 +741,14 @@
       <section class="team-section">
         <div class="content-wrap">
           <div class="newtons-cradle-wrap" id="teamLoading" role="status" aria-live="polite" aria-label="Loading committee">
-            <svg class="newtons-cradle-svg" viewBox="0 0 160 100" aria-hidden="true">
-              <defs>
-                <radialGradient id="cradleSphereGradTeam" cx="35%" cy="35%" r="65%">
-                  <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-                  <stop offset="30%" stop-color="var(--cyan)" stop-opacity="0.85"/>
-                  <stop offset="70%" stop-color="#0284c7"/>
-                  <stop offset="100%" stop-color="#071328"/>
-                </radialGradient>
-              </defs>
-              <!-- Frame support bar -->
-              <rect x="25" y="8" width="110" height="6" rx="3" fill="var(--line)" stroke="rgba(255,255,255,0.1)"/>
-              <!-- Ball 1 (Swinging Left) -->
-              <g class="cradle-ball-1">
-                <line x1="40" y1="11" x2="40" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-                <circle cx="40" cy="66" r="9.6" fill="url(#cradleSphereGradTeam)"/>
-              </g>
-              <!-- Ball 2 (Stationary) -->
-              <g class="cradle-ball-2">
-                <line x1="60" y1="11" x2="60" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-                <circle cx="60" cy="66" r="9.6" fill="url(#cradleSphereGradTeam)"/>
-              </g>
-              <!-- Ball 3 (Stationary) -->
-              <g class="cradle-ball-3">
-                <line x1="80" y1="11" x2="80" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-                <circle cx="80" cy="66" r="9.6" fill="url(#cradleSphereGradTeam)"/>
-              </g>
-              <!-- Ball 4 (Stationary) -->
-              <g class="cradle-ball-4">
-                <line x1="100" y1="11" x2="100" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-                <circle cx="100" cy="66" r="9.6" fill="url(#cradleSphereGradTeam)"/>
-              </g>
-              <!-- Ball 5 (Swinging Right) -->
-              <g class="cradle-ball-5">
-                <line x1="120" y1="11" x2="120" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-                <circle cx="120" cy="66" r="9.6" fill="url(#cradleSphereGradTeam)"/>
-              </g>
-            </svg>
+            <lottie-player
+              src="https://lottie.host/ccb8b8d2-44ac-4bd3-9e20-032671909c3e/4bwzYZo9Kw.json"
+              background="transparent"
+              speed="1"
+              style="width: 130px; height: 130px; margin: 0 auto; display: block;"
+              loop
+              autoplay>
+            </lottie-player>
             <div class="newtons-cradle-caption">Gathering the committee</div>
           </div>
         </div>
@@ -797,6 +768,7 @@
   <!-- ========== ADMIN TEAM EDITOR (injected by JS if admin) ========== -->
   <!-- FAB and Modal are injected by app.js when admin is detected -->
 
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -30,21 +30,24 @@ const defaultDB = {
       title: 'Orbital Chaos Workshop',
       date: '2026-09-12',
       type: 'Workshop',
-      description: 'Hands-on numerical exploration of restricted three-body dynamics and symplectic integrators.'
+      description: 'Hands-on numerical exploration of restricted three-body dynamics and symplectic integrators.',
+      regLink: 'https://forms.gle/demo-orbital-chaos'
     },
     {
       id: 2,
       title: 'Physics Society Orientation',
       date: '2026-09-21',
       type: 'Society',
-      description: 'Meet the team, discover experimental projects, and find your research group in the society.'
+      description: 'Meet the team, discover experimental projects, and find your research group in the society.',
+      regLink: 'https://forms.gle/demo-orientation'
     },
     {
       id: 3,
       title: 'Quantum Optics Symposium',
       date: '2026-10-05',
       type: 'Symposium',
-      description: 'Lectures on entangled photon pair generation and optical interferometry.'
+      description: 'Lectures on entangled photon pair generation and optical interferometry.',
+      regLink: 'https://forms.gle/demo-quantum-optics'
     }
   ],
   colloquia: [
@@ -54,7 +57,8 @@ const defaultDB = {
       speaker: 'Dr. Aritra Bakshi',
       date: '2026-11-18',
       field: 'Astrophysics',
-      description: 'Computational heuristic methods for accelerating matched-filter searches in noisy laser interferometer data.'
+      description: 'Computational heuristic methods for accelerating matched-filter searches in noisy laser interferometer data.',
+      youtubeLink: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
     },
     {
       id: 2,
@@ -62,7 +66,8 @@ const defaultDB = {
       speaker: 'Prof. Snigdha Das',
       date: '2026-12-04',
       field: 'Condensed Matter',
-      description: 'Band topology, Berry curvature, and quantum Hall effects in novel 2D materials.'
+      description: 'Band topology, Berry curvature, and quantum Hall effects in novel 2D materials.',
+      youtubeLink: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
     },
     {
       id: 3,
@@ -70,7 +75,8 @@ const defaultDB = {
       speaker: 'Dr. R. Sengupta',
       date: '2027-01-15',
       field: 'Optics',
-      description: 'Femtosecond pump-probe techniques revealing coherent energy transfer mechanisms in biological systems.'
+      description: 'Femtosecond pump-probe techniques revealing coherent energy transfer mechanisms in biological systems.',
+      youtubeLink: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
     }
   ],
   stats: {
@@ -497,34 +503,43 @@ function renderTeamPage(teamData) {
   container.innerHTML = html;
 }
 
-// ── Load team data from backend, then render ──────────────
+// ── Load team data from backend, then render (Cache-First / Instant Render) ──
 function loadTeamPage() {
   if (currentPage() !== 'team.html') return;
+
+  // 1. Instant Cache-First Render (0ms perceived delay)
+  let initialData = DEFAULT_TEAM_DATA;
+  try {
+    const cached = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null');
+    if (cached && cached.sections && cached.sections.length) {
+      initialData = cached;
+    }
+  } catch (e) {}
+
+  renderTeamPage(initialData);
+
+  // 2. Non-blocking background revalidation with timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
 
   fetch(GOOGLE_APPS_SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'getPageData', page: 'team.html' })
+    body: JSON.stringify({ action: 'getPageData', page: 'team.html' }),
+    signal: controller.signal
   })
   .then(r => r.json())
   .then(res => {
-    let teamData = DEFAULT_TEAM_DATA;
+    clearTimeout(timeoutId);
     if (res.status === 'success' && res.content && res.content.sections) {
-      teamData = res.content;
+      const currentLocal = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null');
+      if (!currentLocal || !currentLocal.updatedAt || (res.content.updatedAt && res.content.updatedAt >= currentLocal.updatedAt)) {
+        localStorage.setItem(TEAM_DATA_KEY, JSON.stringify(res.content));
+        renderTeamPage(res.content);
+      }
     }
-    // Also cache locally
-    localStorage.setItem(TEAM_DATA_KEY, JSON.stringify(teamData));
-    renderTeamPage(teamData);
   })
-  .catch(() => {
-    // Fallback to local cache, then defaults
-    try {
-      const cached = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null');
-      renderTeamPage(cached || DEFAULT_TEAM_DATA);
-    } catch {
-      renderTeamPage(DEFAULT_TEAM_DATA);
-    }
-  });
+  .catch(() => {});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1009,49 +1024,30 @@ function closeTeamEditor() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  REUSABLE NEWTON'S CRADLE LOADING ANIMATION COMPONENT
-//  Physically accurate 5-ball momentum transfer simulation
+//  REUSABLE LOTTIE PHYSICS LOADING ANIMATION COMPONENT
+//  Lottie URL: https://lottie.host/ccb8b8d2-44ac-4bd3-9e20-032671909c3e/4bwzYZo9Kw.json
 // ══════════════════════════════════════════════════════════
+const LOTTIE_LOADER_URL = 'https://lottie.host/ccb8b8d2-44ac-4bd3-9e20-032671909c3e/4bwzYZo9Kw.json';
+
+// Ensure Lottie Player script is available globally
+if (typeof window !== 'undefined' && !window.customElements?.get('lottie-player')) {
+  const lottieScript = document.createElement('script');
+  lottieScript.src = 'https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js';
+  lottieScript.async = true;
+  document.head.appendChild(lottieScript);
+}
+
 function renderNewtonsCradle(caption = 'Loading...') {
-  const uid = 'cradle_' + Math.random().toString(36).substr(2, 6);
   return `
     <div class="newtons-cradle-wrap" role="status" aria-live="polite" aria-label="${escapeHTML(caption)}">
-      <svg class="newtons-cradle-svg" viewBox="0 0 160 100" aria-hidden="true">
-        <defs>
-          <radialGradient id="${uid}" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-            <stop offset="30%" stop-color="var(--cyan)" stop-opacity="0.85"/>
-            <stop offset="70%" stop-color="#0284c7"/>
-            <stop offset="100%" stop-color="#071328"/>
-          </radialGradient>
-        </defs>
-        <rect x="25" y="8" width="110" height="6" rx="3" fill="var(--line)" stroke="rgba(255,255,255,0.1)"/>
-        <!-- Ball 1: Swings left -->
-        <g class="cradle-ball-1">
-          <line x1="40" y1="11" x2="40" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-          <circle cx="40" cy="66" r="9.6" fill="url(#${uid})"/>
-        </g>
-        <!-- Ball 2: Stationary -->
-        <g class="cradle-ball-2">
-          <line x1="60" y1="11" x2="60" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-          <circle cx="60" cy="66" r="9.6" fill="url(#${uid})"/>
-        </g>
-        <!-- Ball 3: Stationary -->
-        <g class="cradle-ball-3">
-          <line x1="80" y1="11" x2="80" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-          <circle cx="80" cy="66" r="9.6" fill="url(#${uid})"/>
-        </g>
-        <!-- Ball 4: Stationary -->
-        <g class="cradle-ball-4">
-          <line x1="100" y1="11" x2="100" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-          <circle cx="100" cy="66" r="9.6" fill="url(#${uid})"/>
-        </g>
-        <!-- Ball 5: Swings right -->
-        <g class="cradle-ball-5">
-          <line x1="120" y1="11" x2="120" y2="66" stroke="var(--line)" stroke-width="1.3"/>
-          <circle cx="120" cy="66" r="9.6" fill="url(#${uid})"/>
-        </g>
-      </svg>
+      <lottie-player
+        src="${LOTTIE_LOADER_URL}"
+        background="transparent"
+        speed="1"
+        style="width: 130px; height: 130px; margin: 0 auto; display: block;"
+        loop
+        autoplay>
+      </lottie-player>
       <div class="newtons-cradle-caption">${escapeHTML(caption)}</div>
     </div>`;
 }
@@ -1086,7 +1082,7 @@ function initGlobalTypography() {
 }
 
 function applyFontPreset(preset, syncBackend = false) {
-  const valid = ['academic', 'modern', 'editorial', 'minimal'];
+  const valid = ['academic', 'modern', 'editorial', 'cyber', 'cinematic', 'chalkboard', 'minimal'];
   if (!valid.includes(preset)) preset = 'academic';
 
   document.documentElement.setAttribute('data-font-preset', preset);
@@ -1102,9 +1098,12 @@ function applyFontPreset(preset, syncBackend = false) {
     const label = document.getElementById('fontCurrentPresetName');
     if (label) {
       const names = {
-        academic: 'Classic Academic (Team Page Style)',
-        modern: 'Modern Scientific (Plus Jakarta & JetBrains)',
-        editorial: 'Editorial Journal (Playfair & DM Mono)',
+        academic: 'Classic Academic (Team Page Style: Cormorant & IBM Plex)',
+        modern: 'Modern Scientific (Plus Jakarta & JetBrains Mono)',
+        editorial: 'Editorial Journal (Playfair Display & DM Mono)',
+        cyber: 'Cyber Sci-Fi Physics (Orbitron & Share Tech Mono)',
+        cinematic: 'Cinematic Classical (Cinzel & Space Mono)',
+        chalkboard: 'Chalkboard Physics Notes (Caveat & Courier Prime)',
         minimal: 'Minimalist Clean (Inter & DM Mono)'
       };
       label.textContent = names[preset] || preset;
@@ -1149,21 +1148,21 @@ const DEFAULT_CONTACT_DATA = {
     title: "We'd love to <em>hear from you</em>.",
     p1: 'Whether you have a question about our events, want to collaborate, or are interested in delivering a colloquium — reach out to the team.',
     p2: 'For departmental information, academic curriculum, and faculty research laboratories, visit the Department of Physics website.',
-    email: 'puphysicssociety@gmail.com'
+    email: 'society@example.org'
   },
   info: {
-    address: '86/1 College Street, Kolkata 700 073, West Bengal, India',
-    email: 'puphysicssociety@gmail.com',
+    address: 'Department of Physics, Presidency University, 86/1 College Street, Kolkata, India',
+    email: 'society@example.org',
     colloquia: 'PLT-2, Baker Building',
     events: 'P.C.M. Auditorium, Baker Building',
     departmentName: 'presiuniv.ac.in →',
     departmentUrl: 'https://www.presiuniv.ac.in/web/physics.php'
   },
   social: {
-    facebook: 'https://www.facebook.com/share/1Ji9crLVGh/',
-    instagram: 'https://www.instagram.com/puphysicssociety',
-    linkedin: 'https://www.linkedin.com/in/presidency-university-physics-society-3b6a87383',
-    youtube: 'https://youtube.com/@puphysicssociety',
+    facebook: '#',
+    instagram: '#',
+    linkedin: '#',
+    youtube: '#',
     github: ''
   }
 };
@@ -1213,7 +1212,6 @@ function renderContactPage(data) {
         <h2>${narrative.title || "We'd love to <em>hear from you</em>."}</h2>
         <p>${escapeHTML(narrative.p1 || '')}</p>
         <p>${escapeHTML(narrative.p2 || '')}</p>
-        <p>You can email us directly at <a href="mailto:${escapeHTML(narrative.email || info.email)}" class="lnk">${escapeHTML(narrative.email || info.email)}</a>.</p>
 
         <!-- Interactive Enquiry Form -->
         <div class="contact-form-panel">
@@ -1314,32 +1312,43 @@ function bindContactFormEvents() {
   };
 }
 
-// ── Load contact page data from backend ───────────────────
+// ── Load contact page data from backend (Cache-First / Instant Render) ───
 function loadContactPage() {
   if (currentPage() !== 'contact.html') return;
+
+  // 1. Instant Cache-First Render (0ms perceived delay)
+  let initialData = DEFAULT_CONTACT_DATA;
+  try {
+    const cached = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null');
+    if (cached && (cached.info || cached.hero)) {
+      initialData = cached;
+    }
+  } catch (e) {}
+
+  renderContactPage(initialData);
+
+  // 2. Non-blocking background revalidation with timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
 
   fetch(GOOGLE_APPS_SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'getPageData', page: 'contact.html' })
+    body: JSON.stringify({ action: 'getPageData', page: 'contact.html' }),
+    signal: controller.signal
   })
   .then(r => r.json())
   .then(res => {
-    let contactData = DEFAULT_CONTACT_DATA;
+    clearTimeout(timeoutId);
     if (res.status === 'success' && res.content && (res.content.info || res.content.hero)) {
-      contactData = res.content;
+      const currentLocal = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null');
+      if (!currentLocal || !currentLocal.updatedAt || (res.content.updatedAt && res.content.updatedAt >= currentLocal.updatedAt)) {
+        localStorage.setItem(CONTACT_DATA_KEY, JSON.stringify(res.content));
+        renderContactPage(res.content);
+      }
     }
-    localStorage.setItem(CONTACT_DATA_KEY, JSON.stringify(contactData));
-    renderContactPage(contactData);
   })
-  .catch(() => {
-    try {
-      const cached = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null');
-      renderContactPage(cached || DEFAULT_CONTACT_DATA);
-    } catch {
-      renderContactPage(DEFAULT_CONTACT_DATA);
-    }
-  });
+  .catch(() => {});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1404,7 +1413,7 @@ function buildContactEditorModal() {
               </div>
               <div class="field">
                 <label class="team-form-label" for="cef-email">Official Inquiries Email</label>
-                <input class="team-form-input" id="cef-email" type="email" placeholder="puphysicssociety@gmail.com" required>
+                <input class="team-form-input" id="cef-email" type="email" placeholder="society@example.org" required>
               </div>
               <div class="field">
                 <label class="team-form-label" for="cef-colloquia">Colloquia Venue</label>
@@ -1551,6 +1560,7 @@ function saveContactFromForm() {
   const getVal = (id) => (document.getElementById(id)?.value || '').trim();
 
   _contactEditorData = {
+    updatedAt: new Date().toISOString(),
     hero: {
       kicker: getVal('cef-herokicker') || 'Contact · Est. 2025',
       title: getVal('cef-herotitle') || 'Get in <em>touch</em>.',
@@ -1560,26 +1570,27 @@ function saveContactFromForm() {
       title: getVal('cef-narrativetitle') || "We'd love to <em>hear from you</em>.",
       p1: getVal('cef-narrativep1') || '',
       p2: getVal('cef-narrativep2') || '',
-      email: getVal('cef-email') || 'puphysicssociety@gmail.com'
+      email: getVal('cef-email') || 'society@example.org'
     },
     info: {
-      address: getVal('cef-address') || '',
-      email: getVal('cef-email') || '',
-      colloquia: getVal('cef-colloquia') || '',
-      events: getVal('cef-events') || '',
+      address: getVal('cef-address') || 'Department of Physics, Presidency University, 86/1 College Street, Kolkata, India',
+      email: getVal('cef-email') || 'society@example.org',
+      colloquia: getVal('cef-colloquia') || 'PLT-2, Baker Building',
+      events: getVal('cef-events') || 'P.C.M. Auditorium, Baker Building',
       departmentName: 'presiuniv.ac.in →',
       departmentUrl: getVal('cef-depturl') || 'https://www.presiuniv.ac.in/web/physics.php'
     },
     social: {
-      facebook: getVal('cef-facebook'),
-      instagram: getVal('cef-instagram'),
-      linkedin: getVal('cef-linkedin'),
-      youtube: getVal('cef-youtube'),
-      github: getVal('cef-github')
+      facebook: getVal('cef-facebook') || '#',
+      instagram: getVal('cef-instagram') || '#',
+      linkedin: getVal('cef-linkedin') || '#',
+      youtube: getVal('cef-youtube') || '#',
+      github: getVal('cef-github') || ''
     }
   };
 
-  // Immediate preview
+  // Immediate persistence & instant live preview
+  localStorage.setItem(CONTACT_DATA_KEY, JSON.stringify(_contactEditorData));
   renderContactPage(_contactEditorData);
 }
 
@@ -2636,15 +2647,19 @@ function initAdmin() {
       const durationHours = parseFloat(qs('#tempDurationHours')?.value || 0);
       const durationMins  = parseFloat(qs('#tempDurationMins')?.value || 0);
 
-      const name        = (nameInput?.value || '').trim();
-      const grantedRole = roleInput?.value || 'member';
       const email       = (emailInput?.value || '').trim().toLowerCase();
+      let name          = (nameInput?.value || '').trim();
+      if (!name && email) {
+        const prefix = email.split('@')[0];
+        name = prefix.split(/[._-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || email;
+      }
+      const grantedRole = roleInput?.value || 'member';
       const durationMs  = tempEnabled
         ? (durationHours * 3600 + durationMins * 60) * 1000
         : 0;
 
-      if (!name || !email) {
-        showToast('Please provide both full name and email.', 'error');
+      if (!email) {
+        showToast('Please provide an institutional email or ID.', 'error');
         return;
       }
 
@@ -3285,13 +3300,14 @@ function initMember() {
   if (addEvForm) {
     addEvForm.onsubmit = (e) => {
       e.preventDefault();
-      const title = qs('#evTitle')?.value.trim();
-      const date  = qs('#evDate')?.value;
-      const type  = qs('#evType')?.value.trim();
-      const desc  = qs('#evDesc')?.value.trim();
+      const title   = qs('#evTitle')?.value.trim();
+      const date    = qs('#evDate')?.value;
+      const type    = qs('#evType')?.value.trim();
+      const desc    = qs('#evDesc')?.value.trim();
+      const regLink = qs('#evRegLink')?.value.trim() || '';
 
       if (!title || !date || !type || !desc) {
-        showToast('Please fill out all event fields.', 'error');
+        showToast('Please fill out all required event fields.', 'error');
         return;
       }
 
@@ -3301,7 +3317,8 @@ function initMember() {
         title,
         date,
         type,
-        description: desc
+        description: desc,
+        regLink
       });
       saveDB(db);
       addEvForm.reset();
@@ -3315,14 +3332,15 @@ function initMember() {
   if (addCoForm) {
     addCoForm.onsubmit = (e) => {
       e.preventDefault();
-      const title   = qs('#coTitle')?.value.trim();
-      const speaker = qs('#coSpeaker')?.value.trim();
-      const date    = qs('#coDate')?.value;
-      const field   = qs('#coField')?.value.trim();
-      const desc    = qs('#coDesc')?.value.trim();
+      const title       = qs('#coTitle')?.value.trim();
+      const speaker     = qs('#coSpeaker')?.value.trim();
+      const date        = qs('#coDate')?.value;
+      const field       = qs('#coField')?.value.trim();
+      const desc        = qs('#coDesc')?.value.trim();
+      const youtubeLink = qs('#coYoutubeLink')?.value.trim() || '';
 
       if (!title || !speaker || !date || !field || !desc) {
-        showToast('Please fill out all colloquium fields.', 'error');
+        showToast('Please fill out all required colloquium fields.', 'error');
         return;
       }
 
@@ -3333,7 +3351,8 @@ function initMember() {
         speaker,
         date,
         field,
-        description: desc
+        description: desc,
+        youtubeLink
       });
       saveDB(db);
       addCoForm.reset();
@@ -3396,6 +3415,7 @@ function renderMemberEvents() {
         <strong>${escapeHTML(ev.title)}</strong>
         <p>${formatDate(ev.date)} · <span class="role-badge" style="padding:2px 6px;">${escapeHTML(ev.type)}</span></p>
         <p>${escapeHTML(ev.description)}</p>
+        ${ev.regLink ? `<p style="font-size:11px; margin-top:4px;"><a href="${escapeHTML(ev.regLink)}" target="_blank" rel="noopener noreferrer" style="color:var(--cyan); text-decoration:underline;">Registration&nbsp;--&gt; (${escapeHTML(ev.regLink)})</a></p>` : ''}
       </div>
       <button class="mini-btn danger-btn delete-event-btn" data-id="${ev.id}" type="button">Delete</button>
     </div>
@@ -3430,6 +3450,7 @@ function renderMemberColloquia() {
         <strong>${escapeHTML(co.title)}</strong>
         <p>${escapeHTML(co.speaker)} · ${formatDate(co.date)} · <span class="role-badge" style="padding:2px 6px;">${escapeHTML(co.field)}</span></p>
         <p>${escapeHTML(co.description)}</p>
+        ${co.youtubeLink ? `<p style="font-size:11px; margin-top:4px;"><a href="${escapeHTML(co.youtubeLink)}" target="_blank" rel="noopener noreferrer" style="color:#f87171; text-decoration:underline;">Watch here&nbsp;--&gt; (${escapeHTML(co.youtubeLink)})</a></p>` : ''}
       </div>
       <button class="mini-btn danger-btn delete-colloquium-btn" data-id="${co.id}" type="button">Delete</button>
     </div>
@@ -3457,8 +3478,6 @@ function initEvents() {
   const searchInput = qs('#eventSearch');
   if (!grid) return;
 
-  grid.innerHTML = renderNewtonsCradle('Loading upcoming events...');
-
   function render(filter = '') {
     const db = loadDB();
     const q = filter.toLowerCase();
@@ -3478,11 +3497,18 @@ function initEvents() {
         <div class="meta">${escapeHTML(ev.type)} · ${formatDate(ev.date)}</div>
         <h3>${escapeHTML(ev.title)}</h3>
         <p>${escapeHTML(ev.description)}</p>
+        ${ev.regLink ? `
+          <div style="margin-top:16px;">
+            <a href="${escapeHTML(ev.regLink)}" target="_blank" rel="noopener noreferrer" class="action-link-btn register">
+              Registration&nbsp;--&gt;
+            </a>
+          </div>` : ''}
       </article>
     `).join('');
   }
 
-  setTimeout(() => render(), 200);
+  // Immediate render (0ms delay)
+  render();
 
   if (searchInput) {
     searchInput.addEventListener('input', (e) => render(e.target.value));
@@ -3495,8 +3521,6 @@ function initColloquia() {
   const searchInput = qs('#colloquiaSearch');
   const fieldSelect = qs('#colloquiaField');
   if (!grid) return;
-
-  grid.innerHTML = renderNewtonsCradle('Loading colloquium archive...');
 
   function render() {
     const db = loadDB();
@@ -3523,11 +3547,19 @@ function initColloquia() {
         <h3>${escapeHTML(co.title)}</h3>
         <p style="color:var(--gold); font-size:13px; margin:4px 0 8px;">Speaker: ${escapeHTML(co.speaker)}</p>
         <p>${escapeHTML(co.description)}</p>
+        ${co.youtubeLink ? `
+          <div style="margin-top:16px;">
+            <a href="${escapeHTML(co.youtubeLink)}" target="_blank" rel="noopener noreferrer" class="action-link-btn youtube">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="margin-right:2px;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch here&nbsp;--&gt;
+            </a>
+          </div>` : ''}
       </article>
     `).join('');
   }
 
-  setTimeout(() => render(), 200);
+  // Immediate render (0ms delay)
+  render();
 
   if (searchInput) searchInput.addEventListener('input', render);
   if (fieldSelect) fieldSelect.addEventListener('change', render);

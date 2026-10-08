@@ -74,6 +74,11 @@
               <textarea id="evDesc" name="description" rows="3" placeholder="Brief event summary" required></textarea>
             </div>
             <div class="field full">
+              <label for="evRegLink">Registration Link</label>
+              <input id="evRegLink" name="regLink" type="url" placeholder="https://forms.gle/... (or event registration URL)">
+              <small style="color:var(--muted); font-size:11px;">Visitors will see this as a 'Registration →' action button.</small>
+            </div>
+            <div class="field full">
               <button class="btn primary" type="submit">Add event</button>
             </div>
           </div>
@@ -106,6 +111,11 @@
             <div class="field full">
               <label for="coDesc">Description</label>
               <textarea id="coDesc" name="description" rows="3" placeholder="Summary of the colloquium" required></textarea>
+            </div>
+            <div class="field full">
+              <label for="coYoutubeLink">YouTube Video Link</label>
+              <input id="coYoutubeLink" name="youtubeLink" type="url" placeholder="https://youtube.com/watch?v=... (or talk video URL)">
+              <small style="color:var(--muted); font-size:11px;">Visitors will see this as a 'Watch here →' action button.</small>
             </div>
             <div class="field full">
               <button class="btn primary" type="submit">Add colloquium</button>
@@ -155,6 +165,7 @@
     <div>© 2026 Presidency University</div>
   </footer>
 
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
