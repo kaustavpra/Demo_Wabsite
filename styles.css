@@ -3,9 +3,44 @@
    ============================================================ */
 
 /* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-/* ── Design tokens ───────────────────────────────────────── */
+/* ── Typography & Design tokens ──────────────────────────── */
+:root {
+  /* Default typography: Academic (Team Page Style) */
+  --font-heading: 'Cormorant Garamond', Georgia, serif;
+  --font-mono:    'IBM Plex Mono', 'JetBrains Mono', monospace;
+  --font-sans:    'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+}
+
+/* Preset 1: Academic (Default - Team Page Style) */
+html[data-font-preset="academic"], :root {
+  --font-heading: 'Cormorant Garamond', Georgia, serif;
+  --font-mono:    'IBM Plex Mono', 'JetBrains Mono', monospace;
+  --font-sans:    'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+}
+
+/* Preset 2: Modern Scientific */
+html[data-font-preset="modern"] {
+  --font-heading: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'DM Mono', monospace;
+  --font-sans:    'Inter', -apple-system, sans-serif;
+}
+
+/* Preset 3: Editorial Journal */
+html[data-font-preset="editorial"] {
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-mono:    'DM Mono', monospace;
+  --font-sans:    'Inter', sans-serif;
+}
+
+/* Preset 4: Minimalist Clean */
+html[data-font-preset="minimal"] {
+  --font-heading: 'Inter', -apple-system, sans-serif;
+  --font-mono:    'DM Mono', monospace;
+  --font-sans:    'Inter', -apple-system, sans-serif;
+}
+
 :root,
 [data-theme="dark"] {
   --bg:                 #070b14;
@@ -101,10 +136,102 @@ body {
   margin: 0;
   background: var(--bg-gradient);
   color: var(--text);
-  font-family: Manrope, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.6;
   transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
   overflow-x: hidden;
+}
+
+/* ── Global Typography Mappings ──────────────────────────── */
+h1, h2, h3, h4, h5, h6,
+.hero h1, .page-hero h1, .split-intro h2, .section-head h2, .feature-panel h2,
+.panel h2, .card h3, .person h2, .person h3, .dashboard-head h1, .login-pane h2,
+.role-side h1, .team-hero-h1, .team-section-title, .team-card-name, .sec-title,
+.contact-hero-h1, .sec-head h2 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+h1 em, h2 em, h3 em, h4 em,
+.hero h1 em, .page-hero h1 em, .team-hero-h1 em, .sec-title em, .contact-hero-h1 em {
+  font-style: italic;
+  color: var(--cyan);
+}
+
+.kicker, .eyebrow, .sec-label, .meta, .badge, .role-badge,
+.badge-chip, .ci-k, .team-hero-kicker, .team-section-label,
+.team-stat-l, .team-card-role, .team-committee-title, .team-committee-count,
+.team-row-role, code, pre, .stat-l, .brand strong, .cb-lbl, .contact-info-label {
+  font-family: var(--font-mono);
+}
+
+/* ── Authentic Newton's Cradle Physics Animation ────────── */
+.newtons-cradle-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 16px;
+  width: 100%;
+}
+
+.newtons-cradle-svg {
+  overflow: visible;
+  width: clamp(120px, 18vw, 170px);
+  aspect-ratio: 160 / 105;
+}
+
+@keyframes cradle-swing-left {
+  0% {
+    transform: rotate(-38deg);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  25% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes cradle-swing-right {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  50% {
+    transform: rotate(38deg);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  75% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.cradle-ball-1 {
+  transform-origin: 40px 11px;
+  animation: cradle-swing-left 1.35s infinite;
+}
+
+.cradle-ball-5 {
+  transform-origin: 120px 11px;
+  animation: cradle-swing-right 1.35s infinite;
+}
+
+.newtons-cradle-caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
 }
 
 a {
@@ -2577,6 +2704,58 @@ footer strong { color: var(--text); }
   background: #ecfdf5;
   color: #065f46;
   border-color: #a7f3d0;
+}
+
+/* ── Shared Form & Admin Modal Styles ───────────────────── */
+.team-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.team-form-label {
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.team-form-input,
+.team-form-select {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  border-radius: 4px;
+  transition: border-color .15s, box-shadow .15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.team-form-input:focus,
+.team-form-select:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px var(--cyan-glow);
+}
+
+.team-form-input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.team-form-select option {
+  background: var(--panel-solid, #0f172a);
+  color: var(--text);
+}
+
+.team-form-hint {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
 }
 
 

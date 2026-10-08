@@ -7,6 +7,376 @@
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
   <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+  <style>
+    /* ── Contact page reference layout ── */
+    .contact-hero {
+      padding: 72px 0 52px;
+      border-bottom: 1px solid var(--line);
+    }
+    .contact-hero-kicker {
+      font-size: 9.5px;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .contact-hero-kicker::before {
+      content: '';
+      display: block;
+      width: 20px;
+      height: 1px;
+      background: var(--cyan);
+      flex-shrink: 0;
+    }
+    .contact-hero-h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 300;
+      font-size: clamp(36px, 4.2vw, 58px);
+      line-height: 1.07;
+      letter-spacing: -.025em;
+      margin-bottom: 18px;
+      max-width: 22ch;
+      color: var(--text-heading);
+    }
+    .contact-hero-h1 em {
+      font-style: italic;
+      color: var(--cyan);
+    }
+    .contact-hero-lede {
+      font-size: 13.5px;
+      line-height: 1.85;
+      color: var(--muted);
+      max-width: 54ch;
+      margin-bottom: 0;
+    }
+
+    /* ── Contact Section Grid ── */
+    .contact-section {
+      padding: 56px 0 80px;
+    }
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+
+    /* ── Left Column: Narrative & Form ── */
+    .contact-left-card {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .contact-left-card h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 300;
+      font-size: clamp(26px, 3vw, 36px);
+      line-height: 1.15;
+      color: var(--text-heading);
+      margin: 0;
+    }
+    .contact-left-card h2 em {
+      font-style: italic;
+      color: var(--cyan);
+    }
+    .contact-left-card p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+      margin: 0;
+    }
+    .contact-left-card p a.lnk {
+      color: var(--cyan);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* Enquiry Form */
+    .contact-form-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .contact-form-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 18px;
+    }
+
+    /* ── Right Column: Structured Information Card (cb) ── */
+    .contact-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 28px 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .cb-lbl {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cb-lbl::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+    .ci {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 16px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .ci:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .ci-k {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      align-self: center;
+    }
+    .ci span:last-child {
+      color: var(--text-heading);
+      word-break: break-word;
+    }
+    .ci span:last-child a {
+      color: var(--cyan);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color .15s, color .15s;
+    }
+    .ci span:last-child a:hover {
+      border-color: var(--cyan);
+    }
+
+    /* Social icons container in contact box */
+    .contact-social-row {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .contact-social-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 4px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      text-decoration: none;
+      transition: all .15s ease;
+    }
+    .contact-social-btn:hover {
+      color: var(--cyan);
+      border-color: var(--cyan);
+      background: var(--panel);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--cyan-glow);
+    }
+
+    /* ── Admin Contact Editor Floating Controls ── */
+    .contact-admin-fab {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 9900;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .contact-admin-btn {
+      background: var(--cyan);
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--cyan-glow), 0 2px 8px rgba(0,0,0,.3);
+      transition: transform .15s, box-shadow .15s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: .05em;
+    }
+    .contact-admin-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px var(--cyan-glow), 0 4px 12px rgba(0,0,0,.35);
+    }
+    .contact-admin-btn.secondary {
+      background: var(--panel);
+      color: var(--text-heading);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      padding: 8px 16px;
+    }
+
+    /* Modal overlay */
+    .contact-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .contact-modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .contact-modal {
+      background: var(--panel-solid, #0f172a);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 720px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 32px 80px rgba(0,0,0,.6);
+    }
+    .contact-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      background: var(--panel-solid, #0f172a);
+      z-index: 1;
+    }
+    .contact-modal-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+    .contact-modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 8px;
+      transition: color .12s;
+      line-height: 1;
+    }
+    .contact-modal-close:hover { color: var(--text-heading); }
+    .contact-modal-body {
+      padding: 24px;
+      flex: 1;
+    }
+    .contact-modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      background: var(--panel-solid, #0f172a);
+      position: sticky;
+      bottom: 0;
+    }
+
+    .contact-tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 20px;
+      gap: 0;
+    }
+    .contact-tab {
+      padding: 10px 18px;
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-family: 'IBM Plex Mono', monospace;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      transition: color .12s, border-bottom-color .12s;
+    }
+    .contact-tab.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+    }
+    .contact-tab:hover:not(.active) { color: var(--text-heading); }
+
+    .contact-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .contact-form-grid .full-width {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 860px) {
+      .contact-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 520px) {
+      .ci {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      .contact-form-grid {
+        grid-template-columns: 1fr;
+      }
+      .contact-form-grid .full-width {
+        grid-column: 1;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -42,66 +412,57 @@
 
   <!-- ========== MAIN CONTENT ========== -->
   <main id="mainContent">
-    <section class="page-hero">
-      <p class="eyebrow">CONTACT</p>
-      <h1>Have a physics<br>question?</h1>
-      <p>Use the form for general enquiries, collaborations, speaker invitations, and society participation.</p>
+    <!-- Hero Section -->
+    <section class="contact-hero">
+      <div class="content-wrap">
+        <div class="contact-hero-kicker" id="contactHeroKicker">Contact · Est. 2025</div>
+        <h1 class="contact-hero-h1" id="contactHeroTitle">Get in <em>touch</em>.</h1>
+        <p class="contact-hero-lede" id="contactHeroLede">Have a physics question, speaker proposal, or collaboration inquiry? Reach out to the society executive committee.</p>
+      </div>
     </section>
 
-    <div class="content-wrap two-col">
-      <form class="panel" id="contactForm" novalidate>
-        <div class="form-grid">
-          <div class="field">
-            <label for="contactName">Name</label>
-            <input id="contactName" name="name" type="text" placeholder="Your name" required autocomplete="name">
+    <!-- Dynamic Contact Section -->
+    <section class="contact-section">
+      <div class="content-wrap">
+        <div id="contactDynamicContent">
+          <!-- Newton's Cradle Loading Animation Placeholder -->
+          <div class="newtons-cradle-wrap" id="contactLoading" role="status" aria-live="polite" aria-label="Loading contact details">
+            <svg class="newtons-cradle-svg" viewBox="0 0 160 100" aria-hidden="true">
+              <defs>
+                <radialGradient id="cradleSphereGradContact" cx="35%" cy="35%" r="65%">
+                  <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+                  <stop offset="30%" stop-color="var(--cyan)" stop-opacity="0.85"/>
+                  <stop offset="70%" stop-color="#0284c7"/>
+                  <stop offset="100%" stop-color="#071328"/>
+                </radialGradient>
+              </defs>
+              <rect x="25" y="8" width="110" height="6" rx="3" fill="var(--line)" stroke="rgba(255,255,255,0.1)"/>
+              <g class="cradle-ball-1">
+                <line x1="40" y1="11" x2="40" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+                <circle cx="40" cy="66" r="9.6" fill="url(#cradleSphereGradContact)"/>
+              </g>
+              <g class="cradle-ball-2">
+                <line x1="60" y1="11" x2="60" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+                <circle cx="60" cy="66" r="9.6" fill="url(#cradleSphereGradContact)"/>
+              </g>
+              <g class="cradle-ball-3">
+                <line x1="80" y1="11" x2="80" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+                <circle cx="80" cy="66" r="9.6" fill="url(#cradleSphereGradContact)"/>
+              </g>
+              <g class="cradle-ball-4">
+                <line x1="100" y1="11" x2="100" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+                <circle cx="100" cy="66" r="9.6" fill="url(#cradleSphereGradContact)"/>
+              </g>
+              <g class="cradle-ball-5">
+                <line x1="120" y1="11" x2="120" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+                <circle cx="120" cy="66" r="9.6" fill="url(#cradleSphereGradContact)"/>
+              </g>
+            </svg>
+            <div class="newtons-cradle-caption">Resolving contact channels</div>
           </div>
-          <div class="field">
-            <label for="contactEmail">Email</label>
-            <input id="contactEmail" name="email" type="email" placeholder="you@example.org" required autocomplete="email">
-          </div>
-          <div class="field full">
-            <label for="contactSubject">Subject</label>
-            <input id="contactSubject" name="subject" type="text" placeholder="Topic or enquiry" required>
-          </div>
-          <div class="field full">
-            <label for="contactMessage">Message</label>
-            <textarea id="contactMessage" name="message" rows="5" placeholder="Write your message here..." required></textarea>
-          </div>
-          <div class="field full">
-            <button class="btn primary" id="contactSubmitBtn" type="submit">Send enquiry</button>
-          </div>
-        </div>
-        <div id="contactStatusBanner" class="feedback-banner" role="status" aria-live="polite"></div>
-      </form>
-
-      <div class="panel">
-        <p class="kicker">Contact channels</p>
-        <div class="list-row">
-          <div>
-            <strong>General</strong>
-            <p>society@example.org</p>
-          </div>
-          <span>01</span>
-        </div>
-        <div class="list-row">
-          <div>
-            <strong>Academic</strong>
-            <p>academics@example.org</p>
-          </div>
-          <span>02</span>
-        </div>
-        <div class="list-row">
-          <div>
-            <strong>Events</strong>
-            <p>events@example.org</p>
-          </div>
-          <span>03</span>
-        </div>
-        <div class="notice" style="margin-top:18px;">
-          Replace these demo addresses with your actual society email IDs in the final deployment.
         </div>
       </div>
-    </div>
+    </section>
   </main>
 
   <!-- ========== SITE FOOTER ========== -->

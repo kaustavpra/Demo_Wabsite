@@ -279,6 +279,67 @@
 
     </div><!-- /manage-grid -->
 
+    <!-- ===== GLOBAL WEBSITE TYPOGRAPHY CONTROL BOX ===== -->
+    <section class="panel" style="margin-top:24px;" aria-labelledby="fontThemeHeading">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div>
+          <p class="kicker">Global Appearance Control</p>
+          <h2 id="fontThemeHeading">Website Typography &amp; Font Theme</h2>
+          <p style="color:var(--muted); font-size:13px; margin:4px 0 0;">
+            Change the font style across the entire website with a single command. Default matches the Team page academic aesthetic (Cormorant Garamond + IBM Plex Mono).
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="badge-chip admin" id="fontCurrentPresetBadge">Active: <strong id="fontCurrentPresetName">Classic Academic (Team Page Style)</strong></span>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-top:20px; align-items:stretch;">
+        <!-- Selector Controls -->
+        <div>
+          <form id="globalFontForm" novalidate>
+            <div class="field" style="margin-bottom:16px;">
+              <label for="globalFontSelect">Select Typography Preset</label>
+              <select id="globalFontSelect" class="team-form-select" style="font-size:14px; padding:10px 12px;">
+                <option value="academic" selected>🌟 Classic Academic (Default - Team Page Style: Cormorant Garamond &amp; IBM Plex Mono)</option>
+                <option value="modern">🚀 Modern Scientific (Plus Jakarta Sans &amp; JetBrains Mono)</option>
+                <option value="editorial">📜 Editorial Journal (Playfair Display &amp; DM Mono)</option>
+                <option value="minimal">⚡ Minimalist Clean (Inter &amp; DM Mono)</option>
+              </select>
+              <small style="color:var(--muted); font-size:11px; margin-top:6px; display:block;">
+                Applies immediately to all headers, kickers, body text, badges, and components across all pages.
+              </small>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn primary" id="applyGlobalFontBtn" type="button" style="padding:10px 24px;">
+                ✓ Apply &amp; Publish Font Style
+              </button>
+              <button class="btn ghost" id="resetGlobalFontBtn" type="button" style="padding:10px 18px;">
+                ↺ Reset to Team Page Default
+              </button>
+            </div>
+          </form>
+          <div id="fontSavedBanner" class="feedback-banner" role="status" aria-live="polite" style="margin-top:14px;"></div>
+        </div>
+
+        <!-- Real-time Live Typography Preview Box -->
+        <div>
+          <div id="fontPreviewBox" style="background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:20px; height:100%; box-sizing:border-box;">
+            <span class="eyebrow" style="margin-bottom:8px; display:block;">PREVIEW · EST. 2025</span>
+            <h3 style="margin:0 0 8px 0; font-size:24px; line-height:1.2;">The questions <em>behind</em> physics.</h3>
+            <p style="color:var(--muted); font-size:13px; line-height:1.7; margin:0 0 14px 0;">
+              Sample preview demonstrating how society headlines, scientific notation, and public archives appear under this typography theme.
+            </p>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="badge">MATH-PHY 01</span>
+              <span class="badge" style="background:rgba(56,189,248,0.12); color:var(--cyan); border-color:var(--cyan);">QUANTUM STATE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===== LIVE ACCESS MONITOR / SUPERVISION TABLE ===== -->
     <section class="panel" style="margin-top:24px;" aria-labelledby="monitorHeading">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">

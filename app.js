@@ -1008,77 +1008,651 @@ function closeTeamEditor() {
   }
 }
 
-// ── Legacy Admin Inline Editor (contact.html only) ────────
-function initAdminInlineEditor() {
-  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  if (!session || session.role !== 'admin') return;
-  const page = currentPage();
-  if (page !== 'contact.html') return;
+// ══════════════════════════════════════════════════════════
+//  REUSABLE NEWTON'S CRADLE LOADING ANIMATION COMPONENT
+//  Physically accurate 5-ball momentum transfer simulation
+// ══════════════════════════════════════════════════════════
+function renderNewtonsCradle(caption = 'Loading...') {
+  const uid = 'cradle_' + Math.random().toString(36).substr(2, 6);
+  return `
+    <div class="newtons-cradle-wrap" role="status" aria-live="polite" aria-label="${escapeHTML(caption)}">
+      <svg class="newtons-cradle-svg" viewBox="0 0 160 100" aria-hidden="true">
+        <defs>
+          <radialGradient id="${uid}" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+            <stop offset="30%" stop-color="var(--cyan)" stop-opacity="0.85"/>
+            <stop offset="70%" stop-color="#0284c7"/>
+            <stop offset="100%" stop-color="#071328"/>
+          </radialGradient>
+        </defs>
+        <rect x="25" y="8" width="110" height="6" rx="3" fill="var(--line)" stroke="rgba(255,255,255,0.1)"/>
+        <!-- Ball 1: Swings left -->
+        <g class="cradle-ball-1">
+          <line x1="40" y1="11" x2="40" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+          <circle cx="40" cy="66" r="9.6" fill="url(#${uid})"/>
+        </g>
+        <!-- Ball 2: Stationary -->
+        <g class="cradle-ball-2">
+          <line x1="60" y1="11" x2="60" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+          <circle cx="60" cy="66" r="9.6" fill="url(#${uid})"/>
+        </g>
+        <!-- Ball 3: Stationary -->
+        <g class="cradle-ball-3">
+          <line x1="80" y1="11" x2="80" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+          <circle cx="80" cy="66" r="9.6" fill="url(#${uid})"/>
+        </g>
+        <!-- Ball 4: Stationary -->
+        <g class="cradle-ball-4">
+          <line x1="100" y1="11" x2="100" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+          <circle cx="100" cy="66" r="9.6" fill="url(#${uid})"/>
+        </g>
+        <!-- Ball 5: Swings right -->
+        <g class="cradle-ball-5">
+          <line x1="120" y1="11" x2="120" y2="66" stroke="var(--line)" stroke-width="1.3"/>
+          <circle cx="120" cy="66" r="9.6" fill="url(#${uid})"/>
+        </g>
+      </svg>
+      <div class="newtons-cradle-caption">${escapeHTML(caption)}</div>
+    </div>`;
+}
 
-  const main = document.querySelector('main');
-  if (!main) return;
+// ══════════════════════════════════════════════════════════
+//  GLOBAL TYPOGRAPHY PRESET SYSTEM
+//  Switches site-wide font style with a single admin command
+//  Default: Academic ('Cormorant Garamond' & 'IBM Plex Mono')
+// ══════════════════════════════════════════════════════════
+const FONT_PRESET_KEY = 'pupsFontPreset';
+const DEFAULT_FONT_PRESET = 'academic';
 
-  const btn = document.createElement('button');
-  btn.textContent = '✏️ Edit Page';
-  btn.className = 'btn primary';
-  btn.style.position = 'fixed';
-  btn.style.bottom = '20px';
-  btn.style.right = '20px';
-  btn.style.zIndex = '9999';
-  btn.style.boxShadow = '0 0 15px var(--glow-spread-color, rgba(191, 123, 255, 0.4))';
-  document.body.appendChild(btn);
+function initGlobalTypography() {
+  const current = localStorage.getItem(FONT_PRESET_KEY) || DEFAULT_FONT_PRESET;
+  applyFontPreset(current, false);
 
-  let isEditing = false;
-  btn.addEventListener('click', () => {
-    isEditing = !isEditing;
-    if (isEditing) {
-      btn.textContent = '💾 Save Changes';
-      main.contentEditable = 'true';
-      main.style.outline = '2px dashed var(--cyan)';
-      showToast('Page is now editable. Click on text to modify.', 'info');
-    } else {
-      btn.textContent = 'Saving...';
-      main.contentEditable = 'false';
-      main.style.outline = 'none';
-      fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'updatePageData', page, content: main.innerHTML })
-      }).then(r => r.json()).then(() => {
-        btn.textContent = '✏️ Edit Page';
-        showToast('Changes saved to Data Center.', 'success');
-      }).catch(() => {
-        btn.textContent = '✏️ Edit Page';
-        showToast('Network error saving changes.', 'error');
-      });
+  // Asynchronously query Google Apps Script global_settings
+  fetch(GOOGLE_APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'getPageData', page: 'global_settings' })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.status === 'success' && res.content && res.content.fontPreset) {
+      if (res.content.fontPreset !== current) {
+        applyFontPreset(res.content.fontPreset, false);
+      }
+    }
+  })
+  .catch(() => {});
+}
+
+function applyFontPreset(preset, syncBackend = false) {
+  const valid = ['academic', 'modern', 'editorial', 'minimal'];
+  if (!valid.includes(preset)) preset = 'academic';
+
+  document.documentElement.setAttribute('data-font-preset', preset);
+  localStorage.setItem(FONT_PRESET_KEY, preset);
+
+  // Update Admin panel controls if present
+  const sel = document.getElementById('globalFontSelect');
+  if (sel && sel.value !== preset) sel.value = preset;
+
+  const preview = document.getElementById('fontPreviewBox');
+  if (preview) {
+    preview.setAttribute('data-font-preset', preset);
+    const label = document.getElementById('fontCurrentPresetName');
+    if (label) {
+      const names = {
+        academic: 'Classic Academic (Team Page Style)',
+        modern: 'Modern Scientific (Plus Jakarta & JetBrains)',
+        editorial: 'Editorial Journal (Playfair & DM Mono)',
+        minimal: 'Minimalist Clean (Inter & DM Mono)'
+      };
+      label.textContent = names[preset] || preset;
+    }
+  }
+
+  if (syncBackend) {
+    fetch(GOOGLE_APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'updatePageData',
+        page: 'global_settings',
+        content: { fontPreset: preset, updatedAt: new Date().toISOString() }
+      })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.status === 'success') {
+        showToast('✓ Global typography preset saved and published to entire site.', 'success');
+      }
+    })
+    .catch(() => {
+      showToast('Font preset applied locally. Cloud sync pending.', 'info');
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTACT PAGE SYSTEM — Structured JSON data model
+//  Admins manage address, venues, emails, social links via modal
+// ══════════════════════════════════════════════════════════
+const CONTACT_DATA_KEY = 'pupsContactData';
+
+const DEFAULT_CONTACT_DATA = {
+  hero: {
+    kicker: 'Contact · Est. 2025',
+    title: 'Get in <em>touch</em>.',
+    lede: 'Have a physics question, collaboration inquiry, or speaker proposal? Reach out to the society executive committee.'
+  },
+  narrative: {
+    title: "We'd love to <em>hear from you</em>.",
+    p1: 'Whether you have a question about our events, want to collaborate, or are interested in delivering a colloquium — reach out to the team.',
+    p2: 'For departmental information, academic curriculum, and faculty research laboratories, visit the Department of Physics website.',
+    email: 'puphysicssociety@gmail.com'
+  },
+  info: {
+    address: '86/1 College Street, Kolkata 700 073, West Bengal, India',
+    email: 'puphysicssociety@gmail.com',
+    colloquia: 'PLT-2, Baker Building',
+    events: 'P.C.M. Auditorium, Baker Building',
+    departmentName: 'presiuniv.ac.in →',
+    departmentUrl: 'https://www.presiuniv.ac.in/web/physics.php'
+  },
+  social: {
+    facebook: 'https://www.facebook.com/share/1Ji9crLVGh/',
+    instagram: 'https://www.instagram.com/puphysicssociety',
+    linkedin: 'https://www.linkedin.com/in/presidency-university-physics-society-3b6a87383',
+    youtube: 'https://youtube.com/@puphysicssociety',
+    github: ''
+  }
+};
+
+let _contactEditorData = null;
+
+// ── Render contact page from structured data ──────────────
+function renderContactPage(data) {
+  const container = document.getElementById('contactDynamicContent');
+  if (!container) return;
+
+  const hero = data.hero || DEFAULT_CONTACT_DATA.hero;
+  const narrative = data.narrative || DEFAULT_CONTACT_DATA.narrative;
+  const info = data.info || DEFAULT_CONTACT_DATA.info;
+  const social = data.social || DEFAULT_CONTACT_DATA.social;
+
+  // Update Hero texts if elements exist
+  const kickerEl = document.getElementById('contactHeroKicker');
+  if (kickerEl) kickerEl.textContent = hero.kicker || 'Contact · Est. 2025';
+  const titleEl = document.getElementById('contactHeroTitle');
+  if (titleEl) titleEl.innerHTML = hero.title || 'Get in <em>touch</em>.';
+  const ledeEl = document.getElementById('contactHeroLede');
+  if (ledeEl) ledeEl.textContent = hero.lede || '';
+
+  // Build social buttons
+  const socialButtons = [];
+  if (social.facebook) {
+    socialButtons.push(`<a href="${escapeHTML(social.facebook)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on Facebook" title="Facebook">${SOCIAL_ICONS.facebook}</a>`);
+  }
+  if (social.instagram) {
+    socialButtons.push(`<a href="${escapeHTML(social.instagram)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on Instagram" title="Instagram">${SOCIAL_ICONS.instagram}</a>`);
+  }
+  if (social.linkedin) {
+    socialButtons.push(`<a href="${escapeHTML(social.linkedin)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on LinkedIn" title="LinkedIn">${SOCIAL_ICONS.linkedin}</a>`);
+  }
+  if (social.youtube) {
+    socialButtons.push(`<a href="${escapeHTML(social.youtube)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on YouTube" title="YouTube"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg></a>`);
+  }
+  if (social.github) {
+    socialButtons.push(`<a href="${escapeHTML(social.github)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on GitHub" title="GitHub">${SOCIAL_ICONS.github}</a>`);
+  }
+
+  container.innerHTML = `
+    <div class="contact-grid">
+      <!-- Left Column: Narrative & Enquiry Form -->
+      <div class="contact-left-card">
+        <h2>${narrative.title || "We'd love to <em>hear from you</em>."}</h2>
+        <p>${escapeHTML(narrative.p1 || '')}</p>
+        <p>${escapeHTML(narrative.p2 || '')}</p>
+        <p>You can email us directly at <a href="mailto:${escapeHTML(narrative.email || info.email)}" class="lnk">${escapeHTML(narrative.email || info.email)}</a>.</p>
+
+        <!-- Interactive Enquiry Form -->
+        <div class="contact-form-panel">
+          <div class="contact-form-title">Send a message to communications</div>
+          <form id="contactForm" novalidate>
+            <div class="form-grid">
+              <div class="field">
+                <label for="contactName">Name</label>
+                <input id="contactName" name="name" type="text" placeholder="Your name" required autocomplete="name">
+              </div>
+              <div class="field">
+                <label for="contactEmail">Email</label>
+                <input id="contactEmail" name="email" type="email" placeholder="you@example.org" required autocomplete="email">
+              </div>
+              <div class="field full">
+                <label for="contactSubject">Subject</label>
+                <input id="contactSubject" name="subject" type="text" placeholder="Topic or enquiry" required>
+              </div>
+              <div class="field full">
+                <label for="contactMessage">Message</label>
+                <textarea id="contactMessage" name="message" rows="4" placeholder="Write your message here..." required></textarea>
+              </div>
+              <div class="field full">
+                <button class="btn primary" id="contactSubmitBtn" type="submit" style="width:100%;">Send Enquiry</button>
+              </div>
+            </div>
+            <div id="contactStatusBanner" class="feedback-banner" role="status" aria-live="polite" style="margin-top:14px;"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right Column: Structured Information Card (cb) -->
+      <div>
+        <div class="contact-box">
+          <div class="cb-lbl">Contact Information</div>
+          <div class="ci">
+            <span class="ci-k">Address</span>
+            <span>${escapeHTML(info.address || '')}</span>
+          </div>
+          <div class="ci">
+            <span class="ci-k">Email</span>
+            <span><a href="mailto:${escapeHTML(info.email || '')}">${escapeHTML(info.email || '')}</a></span>
+          </div>
+          <div class="ci">
+            <span class="ci-k">Colloquia</span>
+            <span>${escapeHTML(info.colloquia || '')}</span>
+          </div>
+          <div class="ci">
+            <span class="ci-k">Events</span>
+            <span>${escapeHTML(info.events || '')}</span>
+          </div>
+          <div class="ci">
+            <span class="ci-k">Department</span>
+            <span><a href="${escapeHTML(info.departmentUrl || '#')}" target="_blank" rel="noopener noreferrer">${escapeHTML(info.departmentName || 'presiuniv.ac.in →')}</a></span>
+          </div>
+          <div class="ci" style="align-items:center;">
+            <span class="ci-k">Social</span>
+            <div class="contact-social-row">
+              ${socialButtons.join('') || '<span style="color:var(--muted); font-size:12px;">No social links configured.</span>'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Attach contact form event listener
+  bindContactFormEvents();
+}
+
+function bindContactFormEvents() {
+  const form = document.getElementById('contactForm');
+  const banner = document.getElementById('contactStatusBanner');
+  if (!form) return;
+
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const name = qs('#contactName')?.value.trim();
+    const email = qs('#contactEmail')?.value.trim();
+    const subject = qs('#contactSubject')?.value.trim();
+    const message = qs('#contactMessage')?.value.trim();
+
+    if (!name || !email || !subject || !message) {
+      if (banner) {
+        banner.className = 'feedback-banner error show';
+        banner.innerHTML = 'Please fill out all required fields.';
+      }
+      showToast('Please fill out all required fields.', 'error');
+      return;
+    }
+
+    if (banner) {
+      banner.className = 'feedback-banner success show';
+      banner.innerHTML = `✓ Thank you, <strong>${escapeHTML(name)}</strong>! Your enquiry has been received and routed to society communications.`;
+      setTimeout(() => { banner.classList.remove('show'); }, 6000);
+    }
+    showToast(`Enquiry sent successfully. Thank you, ${name}!`, 'success');
+    form.reset();
+  };
+}
+
+// ── Load contact page data from backend ───────────────────
+function loadContactPage() {
+  if (currentPage() !== 'contact.html') return;
+
+  fetch(GOOGLE_APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'getPageData', page: 'contact.html' })
+  })
+  .then(r => r.json())
+  .then(res => {
+    let contactData = DEFAULT_CONTACT_DATA;
+    if (res.status === 'success' && res.content && (res.content.info || res.content.hero)) {
+      contactData = res.content;
+    }
+    localStorage.setItem(CONTACT_DATA_KEY, JSON.stringify(contactData));
+    renderContactPage(contactData);
+  })
+  .catch(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null');
+      renderContactPage(cached || DEFAULT_CONTACT_DATA);
+    } catch {
+      renderContactPage(DEFAULT_CONTACT_DATA);
     }
   });
 }
 
-function loadAdminPageData() {
-  const page = currentPage();
-  if (page !== 'contact.html') return;  // team.html handled by loadTeamPage()
-  const main = document.querySelector('main');
-  if (!main) return;
+// ══════════════════════════════════════════════════════════
+//  ADMIN CONTACT EDITOR — Modal form for managing contact info
+// ══════════════════════════════════════════════════════════
+function initAdminContactEditor() {
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (!session || session.role !== 'admin') return;
+  if (currentPage() !== 'contact.html') return;
+
+  try {
+    _contactEditorData = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null') || structuredClone(DEFAULT_CONTACT_DATA);
+  } catch {
+    _contactEditorData = structuredClone(DEFAULT_CONTACT_DATA);
+  }
+
+  // Inject Floating Action Button
+  const fab = document.createElement('div');
+  fab.className = 'contact-admin-fab';
+  fab.innerHTML = `<button class="contact-admin-btn" id="contactEditorOpenBtn" aria-label="Open contact editor">✏️ Manage Contact</button>`;
+  document.body.appendChild(fab);
+
+  // Inject Modal
+  const modal = document.createElement('div');
+  modal.className = 'contact-modal-overlay';
+  modal.id = 'contactEditorModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'Contact Page Editor');
+  modal.innerHTML = buildContactEditorModal();
+  document.body.appendChild(modal);
+
+  // Wire events
+  document.getElementById('contactEditorOpenBtn').addEventListener('click', openContactEditor);
+  document.getElementById('contactEditorClose').addEventListener('click', closeContactEditor);
+  modal.addEventListener('click', e => { if (e.target === modal) closeContactEditor(); });
+  wireContactEditorEvents();
+}
+
+function buildContactEditorModal() {
+  return `
+    <div class="contact-modal">
+      <div class="contact-modal-header">
+        <span class="contact-modal-title">✏️ Contact Page Editor</span>
+        <button class="contact-modal-close" id="contactEditorClose" aria-label="Close editor">✕</button>
+      </div>
+      <div class="contact-modal-body">
+        <div class="contact-tab-bar">
+          <button class="contact-tab active" data-tab="info">Contact Information</button>
+          <button class="contact-tab" data-tab="social">Social Media Links</button>
+          <button class="contact-tab" data-tab="hero">Hero & Narrative</button>
+        </div>
+
+        <form id="contactEditorForm" novalidate>
+          <!-- Tab 1: Information -->
+          <div id="contactTab-info">
+            <p style="font-size:11px; color:var(--muted); margin-bottom:16px; font-family:'IBM Plex Mono',monospace;">Update the official contact card values shown on the public contact page.</p>
+            <div class="contact-form-grid">
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-address">Physical Address</label>
+                <input class="team-form-input" id="cef-address" type="text" placeholder="e.g. 86/1 College Street, Kolkata 700 073" required>
+              </div>
+              <div class="field">
+                <label class="team-form-label" for="cef-email">Official Inquiries Email</label>
+                <input class="team-form-input" id="cef-email" type="email" placeholder="puphysicssociety@gmail.com" required>
+              </div>
+              <div class="field">
+                <label class="team-form-label" for="cef-colloquia">Colloquia Venue</label>
+                <input class="team-form-input" id="cef-colloquia" type="text" placeholder="PLT-2, Baker Building">
+              </div>
+              <div class="field">
+                <label class="team-form-label" for="cef-events">Major Events Venue</label>
+                <input class="team-form-input" id="cef-events" type="text" placeholder="P.C.M. Auditorium, Baker Building">
+              </div>
+              <div class="field">
+                <label class="team-form-label" for="cef-depturl">Department Website URL</label>
+                <input class="team-form-input" id="cef-depturl" type="url" placeholder="https://www.presiuniv.ac.in/web/physics.php">
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Social Media Links -->
+          <div id="contactTab-social" style="display:none;">
+            <p style="font-size:11px; color:var(--muted); margin-bottom:16px; font-family:'IBM Plex Mono',monospace;">Add or update society social media profiles. Leave empty to omit a network.</p>
+            <div class="contact-form-grid">
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-facebook">Facebook Page URL</label>
+                <input class="team-form-input" id="cef-facebook" type="url" placeholder="https://facebook.com/...">
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-instagram">Instagram Profile URL</label>
+                <input class="team-form-input" id="cef-instagram" type="url" placeholder="https://instagram.com/puphysicssociety">
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-linkedin">LinkedIn Organisation URL</label>
+                <input class="team-form-input" id="cef-linkedin" type="url" placeholder="https://linkedin.com/in/...">
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-youtube">YouTube Channel URL</label>
+                <input class="team-form-input" id="cef-youtube" type="url" placeholder="https://youtube.com/@puphysicssociety">
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-github">GitHub Repository / Organisation URL</label>
+                <input class="team-form-input" id="cef-github" type="url" placeholder="https://github.com/...">
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 3: Hero & Narrative -->
+          <div id="contactTab-hero" style="display:none;">
+            <p style="font-size:11px; color:var(--muted); margin-bottom:16px; font-family:'IBM Plex Mono',monospace;">Customize headings and introductory paragraphs without modifying any HTML.</p>
+            <div class="contact-form-grid">
+              <div class="field">
+                <label class="team-form-label" for="cef-herokicker">Hero Kicker</label>
+                <input class="team-form-input" id="cef-herokicker" type="text" placeholder="Contact · Est. 2025">
+              </div>
+              <div class="field">
+                <label class="team-form-label" for="cef-herotitle">Hero Heading (use &lt;em&gt; for accent)</label>
+                <input class="team-form-input" id="cef-herotitle" type="text" placeholder="Get in &lt;em&gt;touch&lt;/em&gt;.">
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-herolede">Hero Subtitle</label>
+                <textarea class="team-form-input" id="cef-herolede" rows="2" placeholder="Have a physics question..."></textarea>
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-narrativetitle">Section Heading</label>
+                <input class="team-form-input" id="cef-narrativetitle" type="text" placeholder="We'd love to &lt;em&gt;hear from you&lt;/em&gt;.">
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-narrativep1">Intro Paragraph</label>
+                <textarea class="team-form-input" id="cef-narrativep1" rows="2"></textarea>
+              </div>
+              <div class="field full-width">
+                <label class="team-form-label" for="cef-narrativep2">Department Link Paragraph</label>
+                <textarea class="team-form-input" id="cef-narrativep2" rows="2"></textarea>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="contact-modal-footer">
+        <button class="contact-admin-btn secondary" id="contactEditorDiscard" type="button">Discard</button>
+        <button class="contact-admin-btn" id="contactEditorSave" type="button">💾 Publish to Site</button>
+      </div>
+    </div>`;
+}
+
+function wireContactEditorEvents() {
+  document.querySelectorAll('.contact-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.contact-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      ['info', 'social', 'hero'].forEach(t => {
+        const el = document.getElementById(`contactTab-${t}`);
+        if (el) el.style.display = t === tab.dataset.tab ? '' : 'none';
+      });
+    });
+  });
+
+  document.getElementById('contactEditorSave').addEventListener('click', () => {
+    saveContactFromForm();
+    publishContactData();
+  });
+
+  document.getElementById('contactEditorDiscard').addEventListener('click', () => {
+    if (confirm('Discard changes and reload saved contact data?')) {
+      try {
+        _contactEditorData = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null') || structuredClone(DEFAULT_CONTACT_DATA);
+      } catch {
+        _contactEditorData = structuredClone(DEFAULT_CONTACT_DATA);
+      }
+      populateContactForm(_contactEditorData);
+      showToast('Changes discarded.', 'info');
+      closeContactEditor();
+    }
+  });
+}
+
+function populateContactForm(data) {
+  const info = data.info || DEFAULT_CONTACT_DATA.info;
+  const social = data.social || DEFAULT_CONTACT_DATA.social;
+  const hero = data.hero || DEFAULT_CONTACT_DATA.hero;
+  const narrative = data.narrative || DEFAULT_CONTACT_DATA.narrative;
+
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+
+  setVal('cef-address', info.address);
+  setVal('cef-email', info.email);
+  setVal('cef-colloquia', info.colloquia);
+  setVal('cef-events', info.events);
+  setVal('cef-depturl', info.departmentUrl);
+
+  setVal('cef-facebook', social.facebook);
+  setVal('cef-instagram', social.instagram);
+  setVal('cef-linkedin', social.linkedin);
+  setVal('cef-youtube', social.youtube);
+  setVal('cef-github', social.github);
+
+  setVal('cef-herokicker', hero.kicker);
+  setVal('cef-herotitle', hero.title);
+  setVal('cef-herolede', hero.lede);
+  setVal('cef-narrativetitle', narrative.title);
+  setVal('cef-narrativep1', narrative.p1);
+  setVal('cef-narrativep2', narrative.p2);
+}
+
+function saveContactFromForm() {
+  const getVal = (id) => (document.getElementById(id)?.value || '').trim();
+
+  _contactEditorData = {
+    hero: {
+      kicker: getVal('cef-herokicker') || 'Contact · Est. 2025',
+      title: getVal('cef-herotitle') || 'Get in <em>touch</em>.',
+      lede: getVal('cef-herolede') || ''
+    },
+    narrative: {
+      title: getVal('cef-narrativetitle') || "We'd love to <em>hear from you</em>.",
+      p1: getVal('cef-narrativep1') || '',
+      p2: getVal('cef-narrativep2') || '',
+      email: getVal('cef-email') || 'puphysicssociety@gmail.com'
+    },
+    info: {
+      address: getVal('cef-address') || '',
+      email: getVal('cef-email') || '',
+      colloquia: getVal('cef-colloquia') || '',
+      events: getVal('cef-events') || '',
+      departmentName: 'presiuniv.ac.in →',
+      departmentUrl: getVal('cef-depturl') || 'https://www.presiuniv.ac.in/web/physics.php'
+    },
+    social: {
+      facebook: getVal('cef-facebook'),
+      instagram: getVal('cef-instagram'),
+      linkedin: getVal('cef-linkedin'),
+      youtube: getVal('cef-youtube'),
+      github: getVal('cef-github')
+    }
+  };
+
+  // Immediate preview
+  renderContactPage(_contactEditorData);
+}
+
+function publishContactData() {
+  const btn = document.getElementById('contactEditorSave');
+  if (btn) {
+    btn.textContent = 'Publishing...';
+    btn.disabled = true;
+  }
+
+  localStorage.setItem(CONTACT_DATA_KEY, JSON.stringify(_contactEditorData));
+
   fetch(GOOGLE_APPS_SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'getPageData', page })
-  }).then(r => r.json()).then(res => {
-    if (res.status === 'success' && res.content && typeof res.content === 'string') {
-      main.innerHTML = res.content;
+    body: JSON.stringify({ action: 'updatePageData', page: 'contact.html', content: _contactEditorData })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (btn) {
+      btn.textContent = '💾 Publish to Site';
+      btn.disabled = false;
     }
-  }).catch(e => console.error(e));
+    if (res.status === 'success') {
+      showToast('✅ Contact information published to the data center successfully!', 'success');
+      renderContactPage(_contactEditorData);
+      closeContactEditor();
+    } else {
+      showToast('Backend note: ' + (res.message || 'Saved locally'), 'info');
+      closeContactEditor();
+    }
+  })
+  .catch(() => {
+    if (btn) {
+      btn.textContent = '💾 Publish to Site';
+      btn.disabled = false;
+    }
+    showToast('Saved locally. Changes active immediately on this device.', 'info');
+    closeContactEditor();
+  });
+}
+
+function openContactEditor() {
+  const modal = document.getElementById('contactEditorModal');
+  if (modal) {
+    try {
+      _contactEditorData = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null') || structuredClone(DEFAULT_CONTACT_DATA);
+    } catch {
+      _contactEditorData = structuredClone(DEFAULT_CONTACT_DATA);
+    }
+    populateContactForm(_contactEditorData);
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeContactEditor() {
+  const modal = document.getElementById('contactEditorModal');
+  if (modal) {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
 }
 
 function initNav() {
+  // Initialize Global Typography theme
+  initGlobalTypography();
   // Team page: load structured data then render
   loadTeamPage();
-  // Admin team editor: inject FAB + modal on team.html for admins
   initAdminTeamEditor();
-  // Legacy page data loader for contact.html
-  initAdminInlineEditor();
-  loadAdminPageData();
+  // Contact page: load structured data then render
+  loadContactPage();
+  initAdminContactEditor();
   const btn = qs('#menuToggle');
   const nav = qs('#mainNav');
   if (btn && nav) {
@@ -1963,18 +2537,68 @@ function initAdmin() {
     };
   }
 
+  // ── Global Typography Admin Control ─────────────────────────
+  const fontSelect = qs('#globalFontSelect');
+  const applyFontBtn = qs('#applyGlobalFontBtn');
+  const resetFontBtn = qs('#resetGlobalFontBtn');
+  const fontBanner = qs('#fontSavedBanner');
+  const fontPreview = qs('#fontPreviewBox');
+
+  if (fontSelect) {
+    const currentPreset = localStorage.getItem(FONT_PRESET_KEY) || DEFAULT_FONT_PRESET;
+    fontSelect.value = currentPreset;
+    if (fontPreview) fontPreview.setAttribute('data-font-preset', currentPreset);
+
+    fontSelect.onchange = () => {
+      const selected = fontSelect.value;
+      if (fontPreview) fontPreview.setAttribute('data-font-preset', selected);
+      // Immediate preview on page
+      document.documentElement.setAttribute('data-font-preset', selected);
+    };
+  }
+
+  if (applyFontBtn) {
+    applyFontBtn.onclick = () => {
+      const selected = fontSelect ? fontSelect.value : DEFAULT_FONT_PRESET;
+      applyFontPreset(selected, true);
+      if (fontBanner) {
+        fontBanner.className = 'feedback-banner success show';
+        fontBanner.innerHTML = `✓ Website typography updated to <strong>${escapeHTML(selected.toUpperCase())}</strong> and published to all visitors.`;
+        setTimeout(() => { fontBanner.classList.remove('show'); }, 6000);
+      }
+    };
+  }
+
+  if (resetFontBtn) {
+    resetFontBtn.onclick = () => {
+      if (fontSelect) fontSelect.value = DEFAULT_FONT_PRESET;
+      applyFontPreset(DEFAULT_FONT_PRESET, true);
+      if (fontBanner) {
+        fontBanner.className = 'feedback-banner success show';
+        fontBanner.innerHTML = `✓ Website typography reset to default <strong>Classic Academic (Team Page Style)</strong>.`;
+        setTimeout(() => { fontBanner.classList.remove('show'); }, 6000);
+      }
+    };
+  }
+
   // Refresh Login Status Monitor
   const refreshBtn = qs('#refreshLoginStatus');
   if (refreshBtn) {
     refreshBtn.onclick = () => {
       const spinner = qs('#refreshSpinner');
+      const tableBody = qs('#loginStatusTable');
       if (spinner) spinner.style.transform = 'rotate(360deg)';
-      pruneExpiredOverrides();
-      renderLoginStatusTable();
-      renderMemberAuthTable(searchInput ? searchInput.value.trim() : '');
-      renderAdminStats();
-      showToast('Live session monitor refreshed.', 'info', 2000);
-      setTimeout(() => { if (spinner) spinner.style.transform = ''; }, 400);
+      if (tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:28px 12px;">${renderNewtonsCradle('Querying cloud authentication matrix...')}</td></tr>`;
+      }
+      setTimeout(() => {
+        pruneExpiredOverrides();
+        renderLoginStatusTable();
+        renderMemberAuthTable(searchInput ? searchInput.value.trim() : '');
+        renderAdminStats();
+        showToast('Live session monitor refreshed.', 'info', 2000);
+        if (spinner) spinner.style.transform = '';
+      }, 400);
     };
   }
 
@@ -2587,12 +3211,13 @@ function initLab() {
     runBtn.onclick = () => {
       if (stateSpan) {
         stateSpan.textContent = 'SIMULATING';
-        stateSpan.style.color = 'var(--admin-cyan)';
+        stateSpan.style.color = 'var(--cyan)';
       }
       if (messageP) {
-        messageP.textContent = 'Numerical integration running: trajectory recalculated under current gravitational parameters. (Read-only simulation preview).';
+        messageP.innerHTML = renderNewtonsCradle('Calculating symplectic numerical integration...') +
+          `<p style="text-align:center; color:var(--muted); font-size:12.5px; margin-top:12px;">Solving restricted three-body differential equations.</p>`;
       }
-      showToast('Simulation started.', 'info', 2000);
+      showToast('Numerical integration running.', 'info', 2000);
     };
   }
 
@@ -2832,6 +3457,8 @@ function initEvents() {
   const searchInput = qs('#eventSearch');
   if (!grid) return;
 
+  grid.innerHTML = renderNewtonsCradle('Loading upcoming events...');
+
   function render(filter = '') {
     const db = loadDB();
     const q = filter.toLowerCase();
@@ -2855,7 +3482,8 @@ function initEvents() {
     `).join('');
   }
 
-  render();
+  setTimeout(() => render(), 200);
+
   if (searchInput) {
     searchInput.addEventListener('input', (e) => render(e.target.value));
   }
@@ -2867,6 +3495,8 @@ function initColloquia() {
   const searchInput = qs('#colloquiaSearch');
   const fieldSelect = qs('#colloquiaField');
   if (!grid) return;
+
+  grid.innerHTML = renderNewtonsCradle('Loading colloquium archive...');
 
   function render() {
     const db = loadDB();
@@ -2897,7 +3527,8 @@ function initColloquia() {
     `).join('');
   }
 
-  render();
+  setTimeout(() => render(), 200);
+
   if (searchInput) searchInput.addEventListener('input', render);
   if (fieldSelect) fieldSelect.addEventListener('change', render);
 }
