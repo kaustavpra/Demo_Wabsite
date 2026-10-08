@@ -297,16 +297,726 @@ async function verifyEmailExistence(email) {
 
 // ── Navigation Initialization & Persistent Session State ────
 
-// --- Admin Inline Editor ---
+// ══════════════════════════════════════════════════════════
+//  TEAM PAGE SYSTEM — Structured JSON data model
+//  All team members are stored as structured data, not raw HTML.
+//  Admins use a form-based modal to add/edit/delete members.
+// ══════════════════════════════════════════════════════════
+
+const TEAM_DATA_KEY = 'pupsTeamData';
+
+const DEFAULT_TEAM_DATA = {
+  sections: [
+    {
+      id: 'executive',
+      title: 'Executive Committee',
+      layout: 'cards',          // 'cards' = large photo cards
+      members: [
+        {
+          id: 'm1',
+          name: 'Physics Society President',
+          role: 'President',
+          photo: '',
+          email: '',
+          social: { linkedin: '', instagram: '', github: '', facebook: '' }
+        },
+        {
+          id: 'm2',
+          name: 'Academic Coordinator',
+          role: 'Academic',
+          photo: '',
+          email: '',
+          social: { linkedin: '', instagram: '', github: '', facebook: '' }
+        },
+        {
+          id: 'm3',
+          name: 'Communications Lead',
+          role: 'Communications',
+          photo: '',
+          email: '',
+          social: { linkedin: '', instagram: '', github: '', facebook: '' }
+        }
+      ]
+    },
+    {
+      id: 'faculty',
+      title: 'Faculty Coordinators',
+      layout: 'rows',           // 'rows' = compact member rows
+      members: [
+        {
+          id: 'm4',
+          name: 'Faculty Advisor',
+          role: 'Faculty Coordinator',
+          photo: '',
+          email: '',
+          social: { linkedin: '', instagram: '', github: '', facebook: '' }
+        }
+      ]
+    }
+  ]
+};
+
+// ── SVG Icons for social links ─────────────────────────────
+const SOCIAL_ICONS = {
+  linkedin: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>`,
+  instagram: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>`,
+  github: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>`,
+  facebook: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>`,
+  email: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`
+};
+
+// ── Get initials from name ─────────────────────────────────
+function getInitials(name) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// ── Build a large photo card ───────────────────────────────
+function buildTeamCard(member) {
+  const initials = getInitials(member.name);
+  const links = buildSocialLinks(member, 'team-link');
+
+  return `
+    <article class="team-card" aria-label="${escapeHTML(member.name)}, ${escapeHTML(member.role)}">
+      <div class="team-avatar-wrap">
+        ${member.photo
+          ? `<img class="team-avatar-img" src="${escapeHTML(member.photo)}" alt="${escapeHTML(member.name)}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <div class="team-avatar-placeholder" style="display:none"><span class="team-avatar-initials">${initials}</span></div>`
+          : `<div class="team-avatar-placeholder"><span class="team-avatar-initials">${initials}</span></div>`
+        }
+      </div>
+      <div class="team-card-body">
+        <p class="team-card-role">${escapeHTML(member.role)}</p>
+        <h3 class="team-card-name">${escapeHTML(member.name)}</h3>
+        ${links ? `<div class="team-card-links">${links}</div>` : ''}
+      </div>
+    </article>`;
+}
+
+// ── Build a compact row ────────────────────────────────────
+function buildTeamRow(member) {
+  const initials = getInitials(member.name);
+  const iconLinks = buildSocialLinks(member, 'team-icon-link icon');
+
+  return `
+    <div class="team-row">
+      <div class="team-avatar-sm">
+        ${member.photo
+          ? `<img class="team-avatar-img-sm" src="${escapeHTML(member.photo)}" alt="${escapeHTML(member.name)}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <span class="team-avatar-initials-sm" style="display:none">${initials}</span>`
+          : `<span class="team-avatar-initials-sm">${initials}</span>`
+        }
+      </div>
+      <div class="team-row-info">
+        <span class="team-row-name">${escapeHTML(member.name)}</span>
+        <span class="team-row-role">${escapeHTML(member.role)}</span>
+      </div>
+      ${iconLinks ? `<div class="team-row-links">${iconLinks}</div>` : ''}
+    </div>`;
+}
+
+// ── Build social link elements ─────────────────────────────
+function buildSocialLinks(member, linkClass) {
+  const parts = [];
+  const { social = {}, email } = member;
+
+  if (email) {
+    parts.push(`<a href="mailto:${escapeHTML(email)}" class="${linkClass}" aria-label="Email ${escapeHTML(member.name)}" title="Email">${SOCIAL_ICONS.email}${linkClass.includes('icon') ? '' : '<span>Email</span>'}</a>`);
+  }
+  if (social.linkedin) {
+    parts.push(`<a href="${escapeHTML(social.linkedin)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on LinkedIn" title="LinkedIn">${SOCIAL_ICONS.linkedin}${linkClass.includes('icon') ? '' : '<span>LinkedIn</span>'}</a>`);
+  }
+  if (social.instagram) {
+    parts.push(`<a href="${escapeHTML(social.instagram)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on Instagram" title="Instagram">${SOCIAL_ICONS.instagram}${linkClass.includes('icon') ? '' : '<span>Instagram</span>'}</a>`);
+  }
+  if (social.github) {
+    parts.push(`<a href="${escapeHTML(social.github)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on GitHub" title="GitHub">${SOCIAL_ICONS.github}${linkClass.includes('icon') ? '' : '<span>GitHub</span>'}</a>`);
+  }
+  if (social.facebook) {
+    parts.push(`<a href="${escapeHTML(social.facebook)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on Facebook" title="Facebook">${SOCIAL_ICONS.facebook}${linkClass.includes('icon') ? '' : '<span>Facebook</span>'}</a>`);
+  }
+
+  return parts.join('');
+}
+
+// ── Render team sections into #teamContent ─────────────────
+function renderTeamPage(teamData) {
+  const container = document.getElementById('teamContent');
+  if (!container) return;
+
+  const sections = teamData.sections || [];
+  const totalMembers = sections.reduce((sum, s) => sum + (s.members || []).length, 0);
+  const totalSections = sections.length;
+
+  // Stats row
+  const statsEl = document.getElementById('teamStats');
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <div class="team-stat">
+        <span class="team-stat-n">${totalMembers}</span>
+        <span class="team-stat-l">Members</span>
+      </div>
+      <div class="team-stat-sep"></div>
+      <div class="team-stat">
+        <span class="team-stat-n">${totalSections}</span>
+        <span class="team-stat-l">Committees</span>
+      </div>`;
+  }
+
+  // Render sections
+  let html = '';
+  sections.forEach((section, sIdx) => {
+    const members = section.members || [];
+    html += `<section class="team-section">
+      <div class="content-wrap">
+        <div class="team-section-head">
+          <div class="team-section-label">
+            <b>0${sIdx + 1}</b>
+            ${escapeHTML(section.id.toUpperCase())}
+          </div>
+          <h2 class="team-section-title">${escapeHTML(section.title)}</h2>
+        </div>`;
+
+    if (section.layout === 'cards') {
+      html += `<div class="team-cards-grid" role="list">`;
+      members.forEach(m => { html += `<div role="listitem">${buildTeamCard(m)}</div>`; });
+      html += `</div>`;
+    } else {
+      // Rows layout (committee accordion or plain list)
+      html += `<div class="team-members-list">`;
+      members.forEach(m => { html += buildTeamRow(m); });
+      html += `</div>`;
+    }
+
+    html += `</div></section>`;
+  });
+
+  if (!html) {
+    html = `<section class="team-section"><div class="content-wrap"><p style="color:var(--muted); font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.1em;">No team members have been added yet. Admins can add members from the ✏️ Manage Team button.</p></div></section>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ── Load team data from backend, then render ──────────────
+function loadTeamPage() {
+  if (currentPage() !== 'team.html') return;
+
+  fetch(GOOGLE_APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'getPageData', page: 'team.html' })
+  })
+  .then(r => r.json())
+  .then(res => {
+    let teamData = DEFAULT_TEAM_DATA;
+    if (res.status === 'success' && res.content && res.content.sections) {
+      teamData = res.content;
+    }
+    // Also cache locally
+    localStorage.setItem(TEAM_DATA_KEY, JSON.stringify(teamData));
+    renderTeamPage(teamData);
+  })
+  .catch(() => {
+    // Fallback to local cache, then defaults
+    try {
+      const cached = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null');
+      renderTeamPage(cached || DEFAULT_TEAM_DATA);
+    } catch {
+      renderTeamPage(DEFAULT_TEAM_DATA);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  ADMIN TEAM EDITOR — Modal form for managing team members
+// ══════════════════════════════════════════════════════════
+
+let _teamEditorData = null;
+let _editingMemberId = null;
+
+function initAdminTeamEditor() {
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (!session || session.role !== 'admin') return;
+  if (currentPage() !== 'team.html') return;
+
+  // Load current data
+  try {
+    _teamEditorData = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null') || structuredClone(DEFAULT_TEAM_DATA);
+  } catch {
+    _teamEditorData = structuredClone(DEFAULT_TEAM_DATA);
+  }
+
+  // Create FAB
+  const fab = document.createElement('div');
+  fab.className = 'team-admin-fab';
+  fab.innerHTML = `<button class="team-admin-btn" id="teamEditorOpenBtn" aria-label="Open team member editor">✏️ Manage Team</button>`;
+  document.body.appendChild(fab);
+
+  // Create modal
+  const modal = document.createElement('div');
+  modal.className = 'team-modal-overlay';
+  modal.id = 'teamEditorModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'Team Member Editor');
+  modal.innerHTML = buildTeamEditorModal();
+  document.body.appendChild(modal);
+
+  // Wire up open/close
+  document.getElementById('teamEditorOpenBtn').addEventListener('click', openTeamEditor);
+  document.getElementById('teamEditorClose').addEventListener('click', closeTeamEditor);
+  modal.addEventListener('click', e => { if (e.target === modal) closeTeamEditor(); });
+
+  // Wire up form & tabs
+  wireTeamEditorEvents();
+}
+
+function buildTeamEditorModal() {
+  return `
+    <div class="team-modal">
+      <div class="team-modal-header">
+        <span class="team-modal-title">✏️ Team Editor</span>
+        <button class="team-modal-close" id="teamEditorClose" aria-label="Close editor">✕</button>
+      </div>
+      <div class="team-modal-body">
+        <div class="team-tab-bar">
+          <button class="team-tab active" data-tab="members">Members</button>
+          <button class="team-tab" data-tab="sections">Sections</button>
+          <button class="team-tab" data-tab="addmember">+ Add Member</button>
+        </div>
+
+        <!-- Tab: Members list -->
+        <div id="teamTab-members">
+          <p style="font-size:11px; color:var(--muted); margin-bottom:14px; font-family:'IBM Plex Mono',monospace;">Click a member to edit. Drag ⠿ to reorder.</p>
+          <div id="teamEditorMemberList" class="team-editor-list" aria-label="Team member list"></div>
+        </div>
+
+        <!-- Tab: Sections -->
+        <div id="teamTab-sections" style="display:none;">
+          <p style="font-size:11px; color:var(--muted); margin-bottom:14px; font-family:'IBM Plex Mono',monospace;">Edit section names. Each section can display as cards (big photos) or rows (compact list).</p>
+          <div id="teamEditorSectionList" class="team-section-manager" aria-label="Team sections"></div>
+          <button class="team-admin-btn secondary" id="teamAddSectionBtn" style="margin-top:14px;">+ Add Section</button>
+        </div>
+
+        <!-- Tab: Add/Edit member form -->
+        <div id="teamTab-addmember" style="display:none;">
+          <h3 id="teamFormTitle" style="font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:300; margin-bottom:18px; color:var(--text-heading);">Add New Member</h3>
+          <form id="teamMemberForm" class="team-member-form" novalidate>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-name">Full Name *</label>
+              <input class="team-form-input" id="tmf-name" type="text" placeholder="e.g. Dr. Aritra Bakshi" required>
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-role">Role / Title *</label>
+              <input class="team-form-input" id="tmf-role" type="text" placeholder="e.g. President" required>
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-section">Section</label>
+              <select class="team-form-select" id="tmf-section"></select>
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-photo">Photo URL</label>
+              <input class="team-form-input" id="tmf-photo" type="url" placeholder="https://...">
+              <span class="team-form-hint">Link to a publicly accessible image</span>
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-email">Email</label>
+              <input class="team-form-input" id="tmf-email" type="email" placeholder="member@presiuniv.ac.in">
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-linkedin">LinkedIn URL</label>
+              <input class="team-form-input" id="tmf-linkedin" type="url" placeholder="https://linkedin.com/in/...">
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-instagram">Instagram URL</label>
+              <input class="team-form-input" id="tmf-instagram" type="url" placeholder="https://instagram.com/...">
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-github">GitHub URL</label>
+              <input class="team-form-input" id="tmf-github" type="url" placeholder="https://github.com/...">
+            </div>
+            <div class="team-form-group">
+              <label class="team-form-label" for="tmf-facebook">Facebook URL</label>
+              <input class="team-form-input" id="tmf-facebook" type="url" placeholder="https://facebook.com/...">
+            </div>
+            <div class="team-form-group full-width" style="margin-top:6px;">
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="submit" class="team-admin-btn" id="teamFormSubmitBtn">✓ Save Member</button>
+                <button type="button" class="team-admin-btn secondary" id="teamFormCancelBtn">Cancel</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="team-modal-footer">
+        <button class="team-admin-btn secondary" id="teamEditorDiscard">Discard Changes</button>
+        <button class="team-admin-btn" id="teamEditorSave">💾 Publish to Site</button>
+      </div>
+    </div>`;
+}
+
+function wireTeamEditorEvents() {
+  // Tabs
+  document.querySelectorAll('.team-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.team-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      ['members', 'sections', 'addmember'].forEach(t => {
+        const el = document.getElementById(`teamTab-${t}`);
+        if (el) el.style.display = t === tab.dataset.tab ? '' : 'none';
+      });
+      if (tab.dataset.tab === 'members') renderMemberList();
+      if (tab.dataset.tab === 'sections') renderSectionList();
+      if (tab.dataset.tab === 'addmember') {
+        _editingMemberId = null;
+        clearMemberForm();
+        document.getElementById('teamFormTitle').textContent = 'Add New Member';
+        document.getElementById('teamFormSubmitBtn').textContent = '✓ Save Member';
+      }
+    });
+  });
+
+  // Member form submit
+  document.getElementById('teamMemberForm').addEventListener('submit', e => {
+    e.preventDefault();
+    saveMemberFromForm();
+  });
+
+  // Cancel edit
+  document.getElementById('teamFormCancelBtn').addEventListener('click', () => {
+    _editingMemberId = null;
+    clearMemberForm();
+    switchToTab('members');
+    renderMemberList();
+  });
+
+  // Save to backend
+  document.getElementById('teamEditorSave').addEventListener('click', publishTeamData);
+
+  // Discard
+  document.getElementById('teamEditorDiscard').addEventListener('click', () => {
+    if (confirm('Discard all unsaved changes?')) {
+      try {
+        _teamEditorData = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null') || structuredClone(DEFAULT_TEAM_DATA);
+      } catch {
+        _teamEditorData = structuredClone(DEFAULT_TEAM_DATA);
+      }
+      renderMemberList();
+      switchToTab('members');
+      showToast('Changes discarded.', 'info');
+    }
+  });
+
+  // Add section
+  document.getElementById('teamAddSectionBtn').addEventListener('click', () => {
+    const id = 'section_' + Date.now();
+    _teamEditorData.sections.push({ id, title: 'New Section', layout: 'cards', members: [] });
+    renderSectionList();
+  });
+
+  // Initial renders
+  renderMemberList();
+}
+
+function switchToTab(tabName) {
+  document.querySelectorAll('.team-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  ['members', 'sections', 'addmember'].forEach(t => {
+    const el = document.getElementById(`teamTab-${t}`);
+    if (el) el.style.display = t === tabName ? '' : 'none';
+  });
+}
+
+function renderMemberList() {
+  const list = document.getElementById('teamEditorMemberList');
+  if (!list) return;
+
+  const allMembers = [];
+  (_teamEditorData.sections || []).forEach(section => {
+    (section.members || []).forEach(m => {
+      allMembers.push({ ...m, _sectionId: section.id, _sectionTitle: section.title });
+    });
+  });
+
+  if (!allMembers.length) {
+    list.innerHTML = `<p style="color:var(--muted); font-size:12px; font-family:'IBM Plex Mono',monospace; padding:16px 0;">No members yet. Use the "+ Add Member" tab to get started.</p>`;
+    return;
+  }
+
+  list.innerHTML = allMembers.map(m => {
+    const initials = getInitials(m.name);
+    return `
+      <div class="team-editor-item" data-mid="${escapeHTML(m.id)}" data-sid="${escapeHTML(m._sectionId)}" tabindex="0" role="button" aria-label="Edit ${escapeHTML(m.name)}">
+        <span class="team-editor-item-drag" aria-hidden="true">⠿</span>
+        <div class="team-editor-item-avatar">
+          ${m.photo
+            ? `<img src="${escapeHTML(m.photo)}" alt="${escapeHTML(m.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.outerHTML='${initials}'">`
+            : initials
+          }
+        </div>
+        <div class="team-editor-item-info">
+          <div class="team-editor-item-name">${escapeHTML(m.name)}</div>
+          <div class="team-editor-item-meta">${escapeHTML(m.role)} · ${escapeHTML(m._sectionTitle)}</div>
+        </div>
+        <button class="team-editor-item-del" data-mid="${escapeHTML(m.id)}" data-sid="${escapeHTML(m._sectionId)}" aria-label="Delete ${escapeHTML(m.name)}" title="Delete member">✕</button>
+      </div>`;
+  }).join('');
+
+  // Wire click-to-edit
+  list.querySelectorAll('.team-editor-item').forEach(item => {
+    item.addEventListener('click', e => {
+      if (e.target.classList.contains('team-editor-item-del')) return;
+      const mid = item.dataset.mid;
+      const sid = item.dataset.sid;
+      openEditMember(mid, sid);
+    });
+    item.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const mid = item.dataset.mid;
+        const sid = item.dataset.sid;
+        openEditMember(mid, sid);
+      }
+    });
+  });
+
+  // Wire delete buttons
+  list.querySelectorAll('.team-editor-item-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const mid = btn.dataset.mid;
+      const sid = btn.dataset.sid;
+      deleteMember(mid, sid);
+    });
+  });
+}
+
+function renderSectionList() {
+  const list = document.getElementById('teamEditorSectionList');
+  if (!list) return;
+  list.innerHTML = (_teamEditorData.sections || []).map((s, idx) => `
+    <div class="team-section-chip" data-idx="${idx}">
+      <span style="font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace; min-width:18px;">${String(idx + 1).padStart(2, '0')}</span>
+      <input type="text" value="${escapeHTML(s.title)}" data-idx="${idx}" data-field="title" placeholder="Section name" aria-label="Section ${idx + 1} name" style="flex:1; background:none; border:none; color:var(--text-heading); font-size:13px; font-family:'IBM Plex Mono',monospace; padding:0;">
+      <select data-idx="${idx}" data-field="layout" style="background:var(--panel2); border:1px solid var(--line); color:var(--text); font-size:10px; font-family:'IBM Plex Mono',monospace; padding:3px 6px; border-radius:3px;" aria-label="Section ${idx + 1} layout">
+        <option value="cards" ${s.layout === 'cards' ? 'selected' : ''}>Cards</option>
+        <option value="rows" ${s.layout === 'rows' ? 'selected' : ''}>Rows</option>
+      </select>
+      <span style="font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace;">${(s.members || []).length} members</span>
+      ${idx > 0 ? `<button style="background:none; border:none; color:var(--red,#f87171); cursor:pointer; font-size:14px;" data-del-section="${idx}" aria-label="Remove section ${s.title}" title="Remove section">✕</button>` : ''}
+    </div>`).join('');
+
+  // Wire changes
+  list.querySelectorAll('input[data-field="title"]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      _teamEditorData.sections[parseInt(inp.dataset.idx)].title = inp.value;
+    });
+  });
+  list.querySelectorAll('select[data-field="layout"]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      _teamEditorData.sections[parseInt(sel.dataset.idx)].layout = sel.value;
+    });
+  });
+  list.querySelectorAll('[data-del-section]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.delSection);
+      const sectionName = _teamEditorData.sections[idx].title;
+      const memberCount = (_teamEditorData.sections[idx].members || []).length;
+      if (memberCount > 0) {
+        if (!confirm(`Section "${sectionName}" has ${memberCount} member(s). Deleting it will also remove those members. Continue?`)) return;
+      }
+      _teamEditorData.sections.splice(idx, 1);
+      renderSectionList();
+    });
+  });
+}
+
+function populateSectionSelect(selectedSectionId) {
+  const sel = document.getElementById('tmf-section');
+  if (!sel) return;
+  sel.innerHTML = (_teamEditorData.sections || []).map(s =>
+    `<option value="${escapeHTML(s.id)}" ${s.id === selectedSectionId ? 'selected' : ''}>${escapeHTML(s.title)}</option>`
+  ).join('');
+}
+
+function clearMemberForm() {
+  ['name', 'role', 'photo', 'email', 'linkedin', 'instagram', 'github', 'facebook'].forEach(f => {
+    const el = document.getElementById(`tmf-${f}`);
+    if (el) el.value = '';
+  });
+  populateSectionSelect(_teamEditorData.sections[0]?.id || '');
+}
+
+function openEditMember(mid, sid) {
+  const section = _teamEditorData.sections.find(s => s.id === sid);
+  if (!section) return;
+  const member = (section.members || []).find(m => m.id === mid);
+  if (!member) return;
+
+  _editingMemberId = mid;
+  populateSectionSelect(sid);
+
+  document.getElementById('tmf-name').value = member.name || '';
+  document.getElementById('tmf-role').value = member.role || '';
+  document.getElementById('tmf-photo').value = member.photo || '';
+  document.getElementById('tmf-email').value = member.email || '';
+  document.getElementById('tmf-linkedin').value = member.social?.linkedin || '';
+  document.getElementById('tmf-instagram').value = member.social?.instagram || '';
+  document.getElementById('tmf-github').value = member.social?.github || '';
+  document.getElementById('tmf-facebook').value = member.social?.facebook || '';
+
+  document.getElementById('teamFormTitle').textContent = `Edit: ${member.name}`;
+  document.getElementById('teamFormSubmitBtn').textContent = '✓ Update Member';
+  switchToTab('addmember');
+}
+
+function saveMemberFromForm() {
+  const name = document.getElementById('tmf-name').value.trim();
+  const role = document.getElementById('tmf-role').value.trim();
+  if (!name || !role) {
+    showToast('Name and Role are required.', 'error');
+    return;
+  }
+
+  const targetSectionId = document.getElementById('tmf-section').value;
+  const memberData = {
+    name,
+    role,
+    photo: document.getElementById('tmf-photo').value.trim(),
+    email: document.getElementById('tmf-email').value.trim(),
+    social: {
+      linkedin: document.getElementById('tmf-linkedin').value.trim(),
+      instagram: document.getElementById('tmf-instagram').value.trim(),
+      github: document.getElementById('tmf-github').value.trim(),
+      facebook: document.getElementById('tmf-facebook').value.trim()
+    }
+  };
+
+  if (_editingMemberId) {
+    // Find and update member (might move between sections)
+    let found = false;
+    _teamEditorData.sections.forEach(s => {
+      const idx = (s.members || []).findIndex(m => m.id === _editingMemberId);
+      if (idx >= 0) {
+        if (s.id === targetSectionId) {
+          // Update in place
+          s.members[idx] = { ...s.members[idx], ...memberData };
+        } else {
+          // Move to different section
+          s.members.splice(idx, 1);
+          const targetSection = _teamEditorData.sections.find(ts => ts.id === targetSectionId);
+          if (targetSection) {
+            if (!targetSection.members) targetSection.members = [];
+            targetSection.members.push({ id: _editingMemberId, ...memberData });
+          }
+        }
+        found = true;
+      }
+    });
+    if (!found) showToast('Member not found.', 'error');
+    else showToast(`Updated: ${name}`, 'success');
+  } else {
+    // New member
+    const newId = 'm_' + Date.now();
+    const targetSection = _teamEditorData.sections.find(s => s.id === targetSectionId);
+    if (!targetSection) {
+      showToast('Invalid section.', 'error');
+      return;
+    }
+    if (!targetSection.members) targetSection.members = [];
+    targetSection.members.push({ id: newId, ...memberData });
+    showToast(`Added: ${name}`, 'success');
+  }
+
+  _editingMemberId = null;
+  clearMemberForm();
+  document.getElementById('teamFormTitle').textContent = 'Add New Member';
+  document.getElementById('teamFormSubmitBtn').textContent = '✓ Save Member';
+  switchToTab('members');
+  renderMemberList();
+
+  // Live preview
+  renderTeamPage(_teamEditorData);
+}
+
+function deleteMember(mid, sid) {
+  const section = _teamEditorData.sections.find(s => s.id === sid);
+  if (!section) return;
+  const member = (section.members || []).find(m => m.id === mid);
+  if (!confirm(`Remove "${member?.name || 'this member'}" from the team?`)) return;
+  section.members = section.members.filter(m => m.id !== mid);
+  renderMemberList();
+  renderTeamPage(_teamEditorData);
+  showToast('Member removed.', 'info');
+}
+
+function publishTeamData() {
+  const btn = document.getElementById('teamEditorSave');
+  btn.textContent = 'Publishing...';
+  btn.disabled = true;
+
+  // Save locally first
+  localStorage.setItem(TEAM_DATA_KEY, JSON.stringify(_teamEditorData));
+
+  fetch(GOOGLE_APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'updatePageData', page: 'team.html', content: _teamEditorData })
+  })
+  .then(r => r.json())
+  .then(res => {
+    btn.textContent = '💾 Publish to Site';
+    btn.disabled = false;
+    if (res.status === 'success') {
+      showToast('✅ Team data published to the data center successfully!', 'success');
+      renderTeamPage(_teamEditorData);
+      closeTeamEditor();
+    } else {
+      showToast('Backend error: ' + (res.message || 'Unknown error'), 'error');
+    }
+  })
+  .catch(err => {
+    btn.textContent = '💾 Publish to Site';
+    btn.disabled = false;
+    showToast('Network error. Changes saved locally.', 'error');
+  });
+}
+
+function openTeamEditor() {
+  const modal = document.getElementById('teamEditorModal');
+  if (modal) {
+    // Refresh editor data from local cache
+    try {
+      _teamEditorData = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null') || structuredClone(DEFAULT_TEAM_DATA);
+    } catch {
+      _teamEditorData = structuredClone(DEFAULT_TEAM_DATA);
+    }
+    switchToTab('members');
+    renderMemberList();
+    populateSectionSelect(_teamEditorData.sections[0]?.id || '');
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeTeamEditor() {
+  const modal = document.getElementById('teamEditorModal');
+  if (modal) {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+// ── Legacy Admin Inline Editor (contact.html only) ────────
 function initAdminInlineEditor() {
   const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
   if (!session || session.role !== 'admin') return;
-  
+  const page = currentPage();
+  if (page !== 'contact.html') return;
+
   const main = document.querySelector('main');
   if (!main) return;
-  
-  const page = currentPage();
-  if (page !== 'team.html' && page !== 'contact.html') return;
 
   const btn = document.createElement('button');
   btn.textContent = '✏️ Edit Page';
@@ -317,31 +1027,27 @@ function initAdminInlineEditor() {
   btn.style.zIndex = '9999';
   btn.style.boxShadow = '0 0 15px var(--glow-spread-color, rgba(191, 123, 255, 0.4))';
   document.body.appendChild(btn);
-  
+
   let isEditing = false;
   btn.addEventListener('click', () => {
     isEditing = !isEditing;
     if (isEditing) {
       btn.textContent = '💾 Save Changes';
       main.contentEditable = 'true';
-      main.style.border = '2px dashed var(--cyan)';
-      main.style.padding = '10px';
-      showToast('Page is now editable. Click on text or images to modify.', 'info');
+      main.style.outline = '2px dashed var(--cyan)';
+      showToast('Page is now editable. Click on text to modify.', 'info');
     } else {
       btn.textContent = 'Saving...';
       main.contentEditable = 'false';
-      main.style.border = 'none';
-      main.style.padding = '0';
-      
-      const content = main.innerHTML;
+      main.style.outline = 'none';
       fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'updatePageData', page: page, content: content })
-      }).then(r => r.json()).then(res => {
+        body: JSON.stringify({ action: 'updatePageData', page, content: main.innerHTML })
+      }).then(r => r.json()).then(() => {
         btn.textContent = '✏️ Edit Page';
         showToast('Changes saved to Data Center.', 'success');
-      }).catch(err => {
+      }).catch(() => {
         btn.textContent = '✏️ Edit Page';
         showToast('Network error saving changes.', 'error');
       });
@@ -351,22 +1057,26 @@ function initAdminInlineEditor() {
 
 function loadAdminPageData() {
   const page = currentPage();
-  if (page !== 'team.html' && page !== 'contact.html') return;
+  if (page !== 'contact.html') return;  // team.html handled by loadTeamPage()
   const main = document.querySelector('main');
   if (!main) return;
-  
   fetch(GOOGLE_APPS_SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'getPageData', page: page })
+    body: JSON.stringify({ action: 'getPageData', page })
   }).then(r => r.json()).then(res => {
-    if (res.status === 'success' && res.content) {
+    if (res.status === 'success' && res.content && typeof res.content === 'string') {
       main.innerHTML = res.content;
     }
   }).catch(e => console.error(e));
 }
 
 function initNav() {
+  // Team page: load structured data then render
+  loadTeamPage();
+  // Admin team editor: inject FAB + modal on team.html for admins
+  initAdminTeamEditor();
+  // Legacy page data loader for contact.html
   initAdminInlineEditor();
   loadAdminPageData();
   const btn = qs('#menuToggle');
