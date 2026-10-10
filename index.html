@@ -43,8 +43,56 @@
   <!-- ========== MAIN CONTENT ========== -->
   <main id="mainContent">
 
+    <!-- ========== PHYSICS SCROLL ENTRANCE EXPERIENCE ========== -->
+    <section class="physics-scroll-entrance" id="physicsScrollEntrance" aria-label="Interactive Physics Scroll Entrance">
+      <div class="pse-sticky-stage">
+        <!-- Celestial / Quantum Wave Background Canvas -->
+        <canvas class="pse-canvas" id="pseCanvas" aria-hidden="true"></canvas>
+
+        <!-- Floating Physics Formulas & Elements -->
+        <div class="pse-formula pse-f1" aria-hidden="true">iℏ ∂ψ/∂t = Ĥψ</div>
+        <div class="pse-formula pse-f2" aria-hidden="true">S = ∫ L(q, q̇, t) dt</div>
+        <div class="pse-formula pse-f3" aria-hidden="true">∇ × B = μ₀J + μ₀ε₀ ∂E/∂t</div>
+        <div class="pse-formula pse-f4" aria-hidden="true">ds² = -(1 - 2GM/rc²)dt² + ...</div>
+
+        <!-- Central Text Scrubber -->
+        <div class="pse-content">
+          <p class="pse-kicker">YOU CAN</p>
+
+          <div class="pse-words-stack" id="pseWordsStack">
+            <span class="pse-word active" data-step="0">theorize.</span>
+            <span class="pse-word" data-step="1">integrate.</span>
+            <span class="pse-word" data-step="2">analyze.</span>
+            <span class="pse-word" data-step="3">discover.</span>
+          </div>
+
+          <!-- Climax Finale with PUPS Logo -->
+          <div class="pse-finale" id="pseFinale" aria-hidden="true">
+            <div class="pse-logo-wrap">
+              <img class="pse-logo" src="pups-logo.png" alt="Presidency University Physics Society Emblem" width="76" height="76">
+              <div class="pse-logo-aura"></div>
+            </div>
+            <h2 class="pse-finale-title">... Physics.</h2>
+            <span class="pse-finale-sub">Presidency University Physics Society</span>
+          </div>
+
+          <!-- Progress tracker and skip button -->
+          <div class="pse-bottom-bar">
+            <div class="pse-dots" id="pseDots" aria-hidden="true">
+              <span class="pse-dot active"></span>
+              <span class="pse-dot"></span>
+              <span class="pse-dot"></span>
+              <span class="pse-dot"></span>
+              <span class="pse-dot"></span>
+            </div>
+            <a href="#heroSection" class="pse-skip-btn" id="pseSkipBtn">Skip to explore ↓</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Hero Section -->
-    <section class="hero">
+    <section class="hero" id="heroSection">
       <div class="hero-copy">
         <p class="eyebrow">PHYSICS • RESEARCH • COMMUNITY</p>
         <h1>Questions first.<br><span>Equations next.</span></h1>

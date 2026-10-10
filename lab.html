@@ -7,6 +7,14 @@
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function(){
+      try {
+        var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
+        if (!s) { location.replace('login.html'); }
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
 

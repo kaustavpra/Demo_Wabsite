@@ -550,8 +550,12 @@ let _teamEditorData = null;
 let _editingMemberId = null;
 
 function initAdminTeamEditor() {
-  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  if (!session || session.role !== 'admin') return;
+  const session = getStoredSession();
+  if (!session) return;
+  const overrides = loadRoleOverrides();
+  const override = overrides.find(o => o.email.toLowerCase() === (session.id || '').toLowerCase());
+  const effectiveRole = override && (!override.expiresAt || override.expiresAt > Date.now()) ? override.grantedRole : session.role;
+  if (effectiveRole !== 'admin') return;
   if (currentPage() !== 'team.html') return;
 
   // Load current data
@@ -1098,13 +1102,13 @@ function applyFontPreset(preset, syncBackend = false) {
     const label = document.getElementById('fontCurrentPresetName');
     if (label) {
       const names = {
-        academic: 'Classic Academic (Team Page Style: Cormorant & IBM Plex)',
-        modern: 'Modern Scientific (Plus Jakarta & JetBrains Mono)',
-        editorial: 'Editorial Journal (Playfair Display & DM Mono)',
-        cyber: 'Cyber Sci-Fi Physics (Orbitron & Share Tech Mono)',
-        cinematic: 'Cinematic Classical (Cinzel & Space Mono)',
-        chalkboard: 'Chalkboard Physics Notes (Caveat & Courier Prime)',
-        minimal: 'Minimalist Clean (Inter & DM Mono)'
+        academic: 'Classic Academic',
+        modern: 'Modern Scientific',
+        editorial: 'Editorial Journal',
+        cyber: 'Cyber Sci-Fi',
+        cinematic: 'Cinematic Classical',
+        chalkboard: 'Chalkboard Notes',
+        minimal: 'Minimalist Clean'
       };
       label.textContent = names[preset] || preset;
     }
@@ -1355,8 +1359,12 @@ function loadContactPage() {
 //  ADMIN CONTACT EDITOR — Modal form for managing contact info
 // ══════════════════════════════════════════════════════════
 function initAdminContactEditor() {
-  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  if (!session || session.role !== 'admin') return;
+  const session = getStoredSession();
+  if (!session) return;
+  const overrides = loadRoleOverrides();
+  const override = overrides.find(o => o.email.toLowerCase() === (session.id || '').toLowerCase());
+  const effectiveRole = override && (!override.expiresAt || override.expiresAt > Date.now()) ? override.grantedRole : session.role;
+  if (effectiveRole !== 'admin') return;
   if (currentPage() !== 'contact.html') return;
 
   try {
@@ -2586,7 +2594,7 @@ function initAdmin() {
       applyFontPreset(DEFAULT_FONT_PRESET, true);
       if (fontBanner) {
         fontBanner.className = 'feedback-banner success show';
-        fontBanner.innerHTML = `✓ Website typography reset to default <strong>Classic Academic (Team Page Style)</strong>.`;
+        fontBanner.innerHTML = `✓ Website typography reset to default <strong>Classic Academic</strong>.`;
         setTimeout(() => { fontBanner.classList.remove('show'); }, 6000);
       }
     };
@@ -3802,8 +3810,246 @@ function init3DMainPage() {
   }, { passive: true });
 }
 
+// ============================================================
+//  PHYSICS SCROLL ENTRANCE EXPERIENCE (HOMEPAGE)
+// ============================================================
+function initPhysicsScrollAnimation() {
+  const entrance = qs('#physicsScrollEntrance');
+  if (!entrance) return;
+
+  const canvas = qs('#pseCanvas');
+  const words = qsa('.pse-word');
+  const finale = qs('#pseFinale');
+  const wordsStack = qs('#pseWordsStack');
+  const dots = qsa('.pse-dot');
+  const skipBtn = qs('#pseSkipBtn');
+  const formulas = qsa('.pse-formula');
+
+  // Skip button click handler
+  if (skipBtn) {
+    skipBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const hero = qs('#heroSection');
+      if (hero) {
+        hero.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        window.scrollTo({
+          top: entrance.offsetTop + entrance.offsetHeight,
+          behavior: 'smooth'
+        });
+      }
+    });
+  }
+
+  // Canvas Quantum Particle & Wave Background
+  let isVisible = true;
+  if (canvas && canvas.getContext) {
+    const ctx = canvas.getContext('2d');
+    let width = 0, height = 0;
+    const particles = [];
+    const PARTICLE_COUNT = 38;
+
+    const resizeCanvas = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = rect.width || window.innerWidth;
+      height = rect.height || window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+
+    // Initialize particles with quantum velocities
+    const colors = [
+      'rgba(56, 189, 248,',  // Cyan
+      'rgba(251, 191, 36,',  // Gold
+      'rgba(167, 139, 250,', // Violet
+      'rgba(52, 211, 153,'   // Emerald
+    ];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.45,
+        vy: (Math.random() - 0.5) * 0.45,
+        radius: 1 + Math.random() * 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        phase: Math.random() * Math.PI * 2,
+        freq: 0.015 + Math.random() * 0.02
+      });
+    }
+
+    let time = 0;
+    const renderCanvas = () => {
+      if (!isVisible) {
+        requestAnimationFrame(renderCanvas);
+        return;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      time += 0.018;
+
+      const cx = width / 2;
+      const cy = height / 2;
+
+      // Draw faint probability density orbital ripples
+      const isBright = document.documentElement.getAttribute('data-theme') === 'bright';
+      const rippleBase = isBright ? 'rgba(2, 132, 199,' : 'rgba(56, 189, 248,';
+
+      for (let r = 1; r <= 3; r++) {
+        const radius = (r * 110 + (Math.sin(time + r) * 14));
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = rippleBase + (0.04 / r) + ')';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 12]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Draw particles & quantum entanglement threads
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx + Math.sin(time + p.phase) * 0.25;
+        p.y += p.vy + Math.cos(time + p.phase) * 0.25;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        // Entanglement links between close particles
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 75) {
+            const alpha = (1 - dist / 75) * (isBright ? 0.12 : 0.2);
+            ctx.strokeStyle = rippleBase + alpha + ')';
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+
+        // Particle circle with subtle pulse
+        const pulse = 0.5 + 0.5 * Math.sin(time * 3 + p.phase);
+        const alpha = isBright ? (0.25 + 0.35 * pulse) : (0.4 + 0.5 * pulse);
+        ctx.fillStyle = p.color + alpha + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * (0.85 + 0.3 * pulse), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      requestAnimationFrame(renderCanvas);
+    };
+
+    renderCanvas();
+
+    // Pause canvas when out of view
+    if ('IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        isVisible = entries[0].isIntersecting;
+      }, { threshold: 0.05 });
+      obs.observe(entrance);
+    }
+  }
+
+  // Scroll Scrubber (4-6 wheel ticks calibrated)
+  let ticking = false;
+  const updateScroll = () => {
+    ticking = false;
+    const rect = entrance.getBoundingClientRect();
+    const scrollDist = entrance.offsetHeight - window.innerHeight;
+    if (scrollDist <= 0) return;
+
+    // Progress from 0.0 (top) to 1.0 (bottom of entrance section)
+    const scrolled = -rect.top;
+    const rawProgress = scrolled / scrollDist;
+    const progress = Math.max(0, Math.min(1, rawProgress));
+
+    // Stage 0 to 4 (5 total stages):
+    // 0: theorize
+    // 1: integrate
+    // 2: analyze
+    // 3: discover
+    // 4: finale (... Physics + Logo)
+    const stage = Math.min(4, Math.floor(progress * 5));
+
+    // Update dots
+    dots.forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === stage);
+    });
+
+    // Update words & finale
+    if (progress >= 0.78) {
+      // Climax Finale
+      words.forEach(w => {
+        w.classList.remove('active');
+        w.style.opacity = '0.06';
+        w.style.transform = 'scale(0.92)';
+      });
+      if (wordsStack) {
+        wordsStack.style.opacity = '0.12';
+        wordsStack.style.pointerEvents = 'none';
+      }
+      if (finale) {
+        finale.classList.add('active');
+      }
+    } else {
+      // One of the 4 verbs is active
+      if (wordsStack) {
+        wordsStack.style.opacity = '1';
+        wordsStack.style.pointerEvents = 'auto';
+      }
+      if (finale) {
+        finale.classList.remove('active');
+      }
+
+      const activeWordIdx = Math.min(3, Math.floor(progress * 4.3));
+      words.forEach((w, idx) => {
+        const isActive = idx === activeWordIdx;
+        w.classList.toggle('active', isActive);
+        if (isActive) {
+          w.style.opacity = '1';
+          w.style.transform = 'scale(1.06)';
+        } else {
+          w.style.opacity = '0.18';
+          w.style.transform = 'scale(0.94)';
+        }
+      });
+    }
+
+    // Floating formulas parallax drift
+    formulas.forEach((f, idx) => {
+      const factor = (idx % 2 === 0 ? 1 : -1) * (18 + idx * 8);
+      f.style.transform = `translate3d(0, ${(progress * factor).toFixed(1)}px, 0)`;
+      f.style.opacity = (0.2 + 0.3 * Math.sin(progress * Math.PI)).toFixed(2);
+    });
+  };
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(updateScroll);
+      ticking = true;
+    }
+  }, { passive: true });
+
+  // Initial call
+  updateScroll();
+}
+
 function initHome() {
   initNav();
+  initPhysicsScrollAnimation();
   init3DMainPage();
 
   // Make all buttons on the main page fully interactive and bypass 3D tilt interference
@@ -3997,9 +4243,23 @@ function initRegister() {
       }).then(r => r.json()).then(res => {
         verifyBtn.textContent = 'Resend Code';
         verifyBtn.disabled = false;
+        if (res && res.status === 'error') {
+          if (verifyBadge) {
+            verifyBadge.className = 'verify-badge unverified';
+            verifyBadge.textContent = 'Delivery Failed';
+          }
+          const failMsg = res.message || 'Unable to deliver verification email to this address. Please ensure the email actually exists.';
+          if (verifyText) verifyText.textContent = failMsg;
+          if (errBox) {
+            errBox.style.display = 'block';
+            errBox.textContent = failMsg;
+          }
+          return;
+        }
+
         if (verifyCodeField) verifyCodeField.style.display = 'block';
         if (verifyCodeHint) {
-          verifyCodeHint.textContent = 'Security Token Dispatched to your email. Enter below to confirm.';
+          verifyCodeHint.textContent = 'Security Token Dispatched to your email inbox. Enter below to confirm.';
         }
         if (verifyBadge) {
           verifyBadge.className = 'verify-badge verifying';
@@ -4011,7 +4271,7 @@ function initRegister() {
       }).catch(err => {
         verifyBtn.textContent = 'Verify Email';
         verifyBtn.disabled = false;
-        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Network error: Could not send verification code.'; }
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Network error: Could not reach verification server. Please try again.'; }
       });
     });
   }
@@ -4037,33 +4297,32 @@ function initRegister() {
       }).then(r => r.json()).then(res => {
         confirmCodeBtn.textContent = 'Confirm Code';
         confirmCodeBtn.disabled = false;
-        if (res.status === 'success' || code === '123456') { // Fallback for dev testing if GAS is not deployed
+        if (res && res.status === 'success') {
+          isEmailVerified = true;
+          verifiedEmailAddress = (regEmailInput.value || '').trim().toLowerCase();
+          if (verifyBadge) {
+            verifyBadge.className = 'verify-badge verified';
+            verifyBadge.textContent = '✓ Verified';
+          }
+          if (verifyText) {
+            verifyText.textContent = 'Email address verified and confirmed active.';
+            verifyText.style.color = 'var(--green)';
+          }
+          if (verifyCodeField) verifyCodeField.style.display = 'none';
+          if (regEmailInput) regEmailInput.readOnly = true;
+          if (verifyBtn) verifyBtn.style.display = 'none';
+          if (errBox) errBox.style.display = 'none';
 
-        isEmailVerified = true;
-        verifiedEmailAddress = (regEmailInput.value || '').trim().toLowerCase();
-        if (verifyBadge) {
-          verifyBadge.className = 'verify-badge verified';
-          verifyBadge.textContent = '✓ Verified';
-        }
-        if (verifyText) {
-          verifyText.textContent = 'Email address verified and confirmed active.';
-          verifyText.style.color = 'var(--green)';
-        }
-        if (verifyCodeField) verifyCodeField.style.display = 'none';
-        if (regEmailInput) regEmailInput.readOnly = true;
-        if (verifyBtn) verifyBtn.style.display = 'none';
-        if (errBox) errBox.style.display = 'none';
+          const stepBadge1 = qs('#stepBadge1');
+          const stepBadge2 = qs('#stepBadge2');
+          if (stepBadge1) stepBadge1.classList.remove('active');
+          if (stepBadge2) stepBadge2.classList.add('active');
 
-        const stepBadge1 = qs('#stepBadge1');
-        const stepBadge2 = qs('#stepBadge2');
-        if (stepBadge1) stepBadge1.classList.remove('active');
-        if (stepBadge2) stepBadge2.classList.add('active');
-
-        showToast('Email verified successfully! You may now set your password.', 'success');
+          showToast('Email verified successfully! You may now set your password.', 'success');
         } else {
           if (errBox) {
             errBox.style.display = 'block';
-            errBox.textContent = 'Incorrect verification code. Please try again.';
+            errBox.textContent = (res && res.message) ? res.message : 'Incorrect verification code. Please check your email and try again.';
           }
         }
       }).catch(err => {

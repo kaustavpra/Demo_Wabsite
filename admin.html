@@ -7,6 +7,14 @@
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    (function(){
+      try {
+        var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
+        if (!s) { location.replace('login.html'); }
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
 
@@ -295,13 +303,13 @@
             <div class="field" style="margin-bottom:16px;">
               <label for="globalFontSelect">Select Typography Preset</label>
               <select id="globalFontSelect" class="team-form-select" style="font-size:14px; padding:10px 12px;">
-                <option value="academic" selected>🌟 Classic Academic (Default - Team Page Style: Cormorant Garamond &amp; IBM Plex Mono)</option>
-                <option value="modern">🚀 Modern Scientific (Plus Jakarta Sans &amp; JetBrains Mono)</option>
-                <option value="editorial">📜 Editorial Journal (Playfair Display &amp; DM Mono)</option>
-                <option value="cyber">🪐 Cyber Sci-Fi Physics (Orbitron &amp; Share Tech Mono)</option>
-                <option value="cinematic">🏛️ Cinematic Classical (Cinzel &amp; Space Mono)</option>
-                <option value="chalkboard">✏️ Chalkboard Physics Notes (Caveat &amp; Courier Prime)</option>
-                <option value="minimal">⚡ Minimalist Clean (Inter &amp; DM Mono)</option>
+                <option value="academic" selected>Classic Academic</option>
+                <option value="modern">Modern Scientific</option>
+                <option value="editorial">Editorial Journal</option>
+                <option value="cyber">Cyber Sci-Fi</option>
+                <option value="cinematic">Cinematic Classical</option>
+                <option value="chalkboard">Chalkboard Notes</option>
+                <option value="minimal">Minimalist Clean</option>
               </select>
               <small style="color:var(--muted); font-size:11px; margin-top:6px; display:block;">
                 Applies immediately to all headers, kickers, body text, badges, and components across all pages.
