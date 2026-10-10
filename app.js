@@ -3811,49 +3811,214 @@ function init3DMainPage() {
 }
 
 // ============================================================
-//  PHYSICS SCROLL ENTRANCE EXPERIENCE (HOMEPAGE)
+//  DEDICATED TRANSPARENT SCROLL ENTRANCE PORTAL
+//  "You Can" fixed anchor with 3-line vertical tumbler slot
 // ============================================================
-function initPhysicsScrollAnimation() {
-  const entrance = qs('#physicsScrollEntrance');
-  if (!entrance) return;
+function initDedicatedScrollEntrance() {
+  const portal = qs('#pseDedicatedPortal');
+  if (!portal) return;
 
-  const canvas = qs('#pseCanvas');
-  const words = qsa('.pse-word');
-  const finale = qs('#pseFinale');
-  const wordsStack = qs('#pseWordsStack');
-  const dots = qsa('.pse-dot');
-  const skipBtn = qs('#pseSkipBtn');
-  const formulas = qsa('.pse-formula');
+  const canvas = qs('#psePortalCanvas');
+  const track = qs('#pseTumblerTrack');
+  const rows = qsa('.pse-tumbler-row');
+  const dots = qsa('#pseStepDots .pse-dot');
+  const skipBtn = qs('#psePortalSkipBtn');
+  const enterBtn = qs('#pseEnterBtn');
+  const enterBtnText = qs('#pseEnterBtnText');
+  const formulas = qsa('.pse-dedicated-portal .pse-formula');
 
-  // Skip button click handler
+  let currentStep = 0;
+  let targetStep = 0;
+  let isDismissed = false;
+  let animFrameId = null;
+
+  // Row height: 84px on desktop, 58px on mobile
+  const getRowHeight = () => (window.innerWidth <= 768 ? 58 : 84);
+
+  // Exit entrance portal to main page
+  const exitPortal = () => {
+    if (isDismissed) return;
+    isDismissed = true;
+    portal.classList.add('pse-portal-dismissed');
+    portal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    showToast('Welcome to Presidency University Physics Society.', 'info', 2500);
+
+    setTimeout(() => {
+      portal.style.display = 'none';
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+    }, 780);
+  };
+
+  // Replay entrance portal
+  window.replayScrollIntro = () => {
+    portal.style.display = 'flex';
+    portal.classList.remove('pse-portal-dismissed');
+    portal.removeAttribute('aria-hidden');
+    document.body.style.overflow = 'hidden';
+    isDismissed = false;
+    targetStep = 0;
+    currentStep = 0;
+    updateTumblerVisuals(0);
+    renderStep();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  // Skip and enter button bindings
   if (skipBtn) {
     skipBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      const hero = qs('#heroSection');
-      if (hero) {
-        hero.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        window.scrollTo({
-          top: entrance.offsetTop + entrance.offsetHeight,
-          behavior: 'smooth'
-        });
-      }
+      exitPortal();
     });
   }
 
-  // Canvas Quantum Particle & Wave Background
-  let isVisible = true;
+  if (enterBtn) {
+    enterBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      exitPortal();
+    });
+  }
+
+  // Lock initial body overflow while on entrance
+  document.body.style.overflow = 'hidden';
+
+  // Wheel interaction (4–6 ticks to complete full progression)
+  portal.addEventListener('wheel', (e) => {
+    if (isDismissed) return;
+    e.preventDefault();
+
+    // Normalizing wheel delta: ~0.45 step per natural mouse notch
+    const delta = Math.sign(e.deltaY) * 0.42;
+    targetStep = Math.max(0, Math.min(4.3, targetStep + delta));
+
+    // When scrolled to finale, next scroll triggers entrance exit!
+    if (targetStep >= 4.15) {
+      exitPortal();
+    }
+  }, { passive: false });
+
+  // Touch swipe support for mobile devices
+  let touchStartY = 0;
+  portal.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches.length > 0) {
+      touchStartY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  portal.addEventListener('touchmove', (e) => {
+    if (isDismissed || !e.touches || e.touches.length === 0) return;
+    e.preventDefault();
+    const touchCurrentY = e.touches[0].clientY;
+    const diff = touchStartY - touchCurrentY;
+    touchStartY = touchCurrentY;
+
+    targetStep = Math.max(0, Math.min(4.3, targetStep + diff * 0.018));
+    if (targetStep >= 4.15) {
+      exitPortal();
+    }
+  }, { passive: false });
+
+  // Keyboard navigation support (ArrowDown, PageDown, Space)
+  window.addEventListener('keydown', (e) => {
+    if (isDismissed) return;
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault();
+      targetStep = Math.min(4.3, targetStep + 0.5);
+      if (targetStep >= 4.15) exitPortal();
+    } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault();
+      targetStep = Math.max(0, targetStep - 0.5);
+    } else if (e.key === 'Escape') {
+      exitPortal();
+    }
+  });
+
+  // Smooth visual updater
+  function updateTumblerVisuals(val) {
+    const rowH = getRowHeight();
+    const translateY = -val * rowH;
+    if (track) {
+      track.style.transform = `translate3d(0, ${translateY.toFixed(1)}px, 0)`;
+    }
+
+    // Update each row's opacity, scale, and focus
+    rows.forEach((row, idx) => {
+      const dist = Math.abs(val - idx);
+      if (dist < 0.48) {
+        // Active in center slot beside "You Can"
+        const factor = 1 - (dist / 0.48);
+        row.style.opacity = (0.35 + factor * 0.65).toFixed(2);
+        row.style.transform = `scale(${(0.95 + factor * 0.05).toFixed(2)})`;
+        row.style.filter = 'blur(0px)';
+      } else if (dist < 1.35) {
+        // In top or bottom slot: visible above/below, dimmed
+        row.style.opacity = '0.22';
+        row.style.transform = 'scale(0.92)';
+        row.style.filter = 'blur(1px)';
+      } else {
+        // Beyond 3-line window
+        row.style.opacity = '0';
+        row.style.transform = 'scale(0.85)';
+        row.style.filter = 'blur(3px)';
+      }
+    });
+
+    // Update dots (0 to 4)
+    const activeStage = Math.min(4, Math.round(val));
+    dots.forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === activeStage);
+    });
+
+    // Update footer button state
+    if (val >= 3.8) {
+      if (enterBtnText) enterBtnText.textContent = 'Enter Main Website ↓';
+      if (enterBtn) {
+        enterBtn.style.borderColor = 'var(--cyan)';
+        enterBtn.style.color = 'var(--cyan)';
+        enterBtn.style.boxShadow = '0 0 20px var(--cyan-glow)';
+      }
+    } else {
+      if (enterBtnText) enterBtnText.textContent = `Scroll to align words (${activeStage + 1}/5) ↓`;
+      if (enterBtn) {
+        enterBtn.style.borderColor = '';
+        enterBtn.style.color = '';
+        enterBtn.style.boxShadow = '';
+      }
+    }
+
+    // Parallax drift for floating formulas
+    formulas.forEach((f, idx) => {
+      const dir = idx % 2 === 0 ? 1 : -1;
+      f.style.transform = `translate3d(0, ${(val * dir * 10).toFixed(1)}px, 0)`;
+    });
+  }
+
+  // Smooth animation render loop
+  function renderStep() {
+    if (isDismissed) return;
+
+    // Smooth exponential decay / lerp
+    const diff = targetStep - currentStep;
+    if (Math.abs(diff) > 0.001) {
+      currentStep += diff * 0.18;
+      updateTumblerVisuals(currentStep);
+    }
+
+    animFrameId = requestAnimationFrame(renderStep);
+  }
+  renderStep();
+
+  // Quantum Wave Background Canvas
   if (canvas && canvas.getContext) {
     const ctx = canvas.getContext('2d');
     let width = 0, height = 0;
     const particles = [];
-    const PARTICLE_COUNT = 38;
+    const PARTICLE_COUNT = 36;
 
     const resizeCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = rect.width || window.innerWidth;
-      height = rect.height || window.innerHeight;
+      width = window.innerWidth;
+      height = window.innerHeight;
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3863,7 +4028,6 @@ function initPhysicsScrollAnimation() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas, { passive: true });
 
-    // Initialize particles with quantum velocities
     const colors = [
       'rgba(56, 189, 248,',  // Cyan
       'rgba(251, 191, 36,',  // Gold
@@ -3875,34 +4039,29 @@ function initPhysicsScrollAnimation() {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.45,
-        vy: (Math.random() - 0.5) * 0.45,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
         radius: 1 + Math.random() * 2,
         color: colors[Math.floor(Math.random() * colors.length)],
-        phase: Math.random() * Math.PI * 2,
-        freq: 0.015 + Math.random() * 0.02
+        phase: Math.random() * Math.PI * 2
       });
     }
 
     let time = 0;
     const renderCanvas = () => {
-      if (!isVisible) {
-        requestAnimationFrame(renderCanvas);
-        return;
-      }
+      if (isDismissed) return;
 
       ctx.clearRect(0, 0, width, height);
-      time += 0.018;
+      time += 0.016;
 
       const cx = width / 2;
       const cy = height / 2;
-
-      // Draw faint probability density orbital ripples
       const isBright = document.documentElement.getAttribute('data-theme') === 'bright';
       const rippleBase = isBright ? 'rgba(2, 132, 199,' : 'rgba(56, 189, 248,';
 
+      // Wave orbital ripples
       for (let r = 1; r <= 3; r++) {
-        const radius = (r * 110 + (Math.sin(time + r) * 14));
+        const radius = r * 115 + Math.sin(time + r) * 12;
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.strokeStyle = rippleBase + (0.04 / r) + ')';
@@ -3912,18 +4071,17 @@ function initPhysicsScrollAnimation() {
         ctx.setLineDash([]);
       }
 
-      // Draw particles & quantum entanglement threads
+      // Entangled particles
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
-        p.x += p.vx + Math.sin(time + p.phase) * 0.25;
-        p.y += p.vy + Math.cos(time + p.phase) * 0.25;
+        p.x += p.vx;
+        p.y += p.vy;
 
         if (p.x < 0) p.x = width;
         if (p.x > width) p.x = 0;
         if (p.y < 0) p.y = height;
         if (p.y > height) p.y = 0;
 
-        // Entanglement links between close particles
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
           const dx = p.x - p2.x;
@@ -3940,12 +4098,10 @@ function initPhysicsScrollAnimation() {
           }
         }
 
-        // Particle circle with subtle pulse
         const pulse = 0.5 + 0.5 * Math.sin(time * 3 + p.phase);
-        const alpha = isBright ? (0.25 + 0.35 * pulse) : (0.4 + 0.5 * pulse);
-        ctx.fillStyle = p.color + alpha + ')';
+        ctx.fillStyle = p.color + (isBright ? 0.35 : 0.55) * pulse + ')';
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius * (0.85 + 0.3 * pulse), 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -3953,103 +4109,12 @@ function initPhysicsScrollAnimation() {
     };
 
     renderCanvas();
-
-    // Pause canvas when out of view
-    if ('IntersectionObserver' in window) {
-      const obs = new IntersectionObserver((entries) => {
-        isVisible = entries[0].isIntersecting;
-      }, { threshold: 0.05 });
-      obs.observe(entrance);
-    }
   }
-
-  // Scroll Scrubber (4-6 wheel ticks calibrated)
-  let ticking = false;
-  const updateScroll = () => {
-    ticking = false;
-    const rect = entrance.getBoundingClientRect();
-    const scrollDist = entrance.offsetHeight - window.innerHeight;
-    if (scrollDist <= 0) return;
-
-    // Progress from 0.0 (top) to 1.0 (bottom of entrance section)
-    const scrolled = -rect.top;
-    const rawProgress = scrolled / scrollDist;
-    const progress = Math.max(0, Math.min(1, rawProgress));
-
-    // Stage 0 to 4 (5 total stages):
-    // 0: theorize
-    // 1: integrate
-    // 2: analyze
-    // 3: discover
-    // 4: finale (... Physics + Logo)
-    const stage = Math.min(4, Math.floor(progress * 5));
-
-    // Update dots
-    dots.forEach((dot, idx) => {
-      dot.classList.toggle('active', idx === stage);
-    });
-
-    // Update words & finale
-    if (progress >= 0.78) {
-      // Climax Finale
-      words.forEach(w => {
-        w.classList.remove('active');
-        w.style.opacity = '0.06';
-        w.style.transform = 'scale(0.92)';
-      });
-      if (wordsStack) {
-        wordsStack.style.opacity = '0.12';
-        wordsStack.style.pointerEvents = 'none';
-      }
-      if (finale) {
-        finale.classList.add('active');
-      }
-    } else {
-      // One of the 4 verbs is active
-      if (wordsStack) {
-        wordsStack.style.opacity = '1';
-        wordsStack.style.pointerEvents = 'auto';
-      }
-      if (finale) {
-        finale.classList.remove('active');
-      }
-
-      const activeWordIdx = Math.min(3, Math.floor(progress * 4.3));
-      words.forEach((w, idx) => {
-        const isActive = idx === activeWordIdx;
-        w.classList.toggle('active', isActive);
-        if (isActive) {
-          w.style.opacity = '1';
-          w.style.transform = 'scale(1.06)';
-        } else {
-          w.style.opacity = '0.18';
-          w.style.transform = 'scale(0.94)';
-        }
-      });
-    }
-
-    // Floating formulas parallax drift
-    formulas.forEach((f, idx) => {
-      const factor = (idx % 2 === 0 ? 1 : -1) * (18 + idx * 8);
-      f.style.transform = `translate3d(0, ${(progress * factor).toFixed(1)}px, 0)`;
-      f.style.opacity = (0.2 + 0.3 * Math.sin(progress * Math.PI)).toFixed(2);
-    });
-  };
-
-  window.addEventListener('scroll', () => {
-    if (!ticking) {
-      requestAnimationFrame(updateScroll);
-      ticking = true;
-    }
-  }, { passive: true });
-
-  // Initial call
-  updateScroll();
 }
 
 function initHome() {
   initNav();
-  initPhysicsScrollAnimation();
+  initDedicatedScrollEntrance();
   init3DMainPage();
 
   // Make all buttons on the main page fully interactive and bypass 3D tilt interference

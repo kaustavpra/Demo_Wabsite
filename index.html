@@ -13,6 +13,82 @@
   <!-- Accessible Skip Link -->
   <a href="#mainContent" class="skip-link">Skip to main content</a>
 
+  <!-- ========== DEDICATED TRANSPARENT SCROLL ENTRANCE PORTAL ========== -->
+  <div class="pse-dedicated-portal" id="pseDedicatedPortal" role="dialog" aria-modal="true" aria-label="Welcome Physics Scroll Experience">
+    <!-- Cosmic / Quantum Wave Background Canvas -->
+    <canvas class="pse-portal-canvas" id="psePortalCanvas" aria-hidden="true"></canvas>
+
+    <!-- Floating Relativistic & Quantum Formulas -->
+    <div class="pse-formula pse-f1" aria-hidden="true">iℏ ∂ψ/∂t = Ĥψ</div>
+    <div class="pse-formula pse-f2" aria-hidden="true">S = ∫ L(q, q̇, t) dt</div>
+    <div class="pse-formula pse-f3" aria-hidden="true">∇ × B = μ₀J + μ₀ε₀ ∂E/∂t</div>
+    <div class="pse-formula pse-f4" aria-hidden="true">ds² = -(1 - 2GM/rc²)dt² + ...</div>
+
+    <!-- Top bar: Identity badge & Skip action -->
+    <div class="pse-portal-topbar">
+      <div class="pse-portal-brand">
+        <img src="pups-logo.png" alt="PUPS Logo" class="pse-brand-mini" width="28" height="28">
+        <span>Presidency University Physics Society</span>
+      </div>
+      <button class="pse-portal-skip" id="psePortalSkipBtn" aria-label="Skip scroll intro and go directly to main website">
+        Skip to website →
+      </button>
+    </div>
+
+    <!-- Central 3-Line Alignment Tumbler -->
+    <div class="pse-lockup-container">
+      <!-- Fixed Anchor: "You Can" -->
+      <div class="pse-fixed-anchor">
+        <span class="pse-anchor-text">You Can</span>
+      </div>
+
+      <!-- 3-Line Vertical Tumbler Window -->
+      <div class="pse-tumbler-window" id="pseTumblerWindow">
+        <div class="pse-tumbler-track" id="pseTumblerTrack">
+          <!-- Row 0: Theorize -->
+          <div class="pse-tumbler-row active" data-index="0">
+            <span class="pse-verb-word neon-cyan">Theorize.</span>
+          </div>
+          <!-- Row 1: Integrate -->
+          <div class="pse-tumbler-row" data-index="1">
+            <span class="pse-verb-word neon-sky">Integrate.</span>
+          </div>
+          <!-- Row 2: Analyze -->
+          <div class="pse-tumbler-row" data-index="2">
+            <span class="pse-verb-word neon-gold">Analyze.</span>
+          </div>
+          <!-- Row 3: Discover -->
+          <div class="pse-tumbler-row" data-index="3">
+            <span class="pse-verb-word neon-violet">Discover.</span>
+          </div>
+          <!-- Row 4: ... Physics Finale -->
+          <div class="pse-tumbler-row pse-finale-row" data-index="4">
+            <div class="pse-emblem-wrap">
+              <img class="pse-emblem-img" src="pups-logo.png" alt="PUPS Emblem" width="48" height="48">
+              <div class="pse-emblem-aura"></div>
+            </div>
+            <span class="pse-verb-word neon-emerald">... Physics.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portal Footer: Step Tracker and Enter Button -->
+    <div class="pse-portal-footer">
+      <div class="pse-step-indicators" id="pseStepDots" aria-hidden="true">
+        <span class="pse-dot active"></span>
+        <span class="pse-dot"></span>
+        <span class="pse-dot"></span>
+        <span class="pse-dot"></span>
+        <span class="pse-dot"></span>
+      </div>
+      <button class="pse-enter-btn" id="pseEnterBtn">
+        <span class="pse-enter-pulse"></span>
+        <span id="pseEnterBtnText">Scroll to align words (4–6 ticks) ↓</span>
+      </button>
+    </div>
+  </div>
+
   <!-- ========== SITE HEADER ========== -->
   <header class="site-header">
     <a class="brand" href="index.html" aria-label="Presidency University Physics Society Home">
@@ -42,54 +118,6 @@
 
   <!-- ========== MAIN CONTENT ========== -->
   <main id="mainContent">
-
-    <!-- ========== PHYSICS SCROLL ENTRANCE EXPERIENCE ========== -->
-    <section class="physics-scroll-entrance" id="physicsScrollEntrance" aria-label="Interactive Physics Scroll Entrance">
-      <div class="pse-sticky-stage">
-        <!-- Celestial / Quantum Wave Background Canvas -->
-        <canvas class="pse-canvas" id="pseCanvas" aria-hidden="true"></canvas>
-
-        <!-- Floating Physics Formulas & Elements -->
-        <div class="pse-formula pse-f1" aria-hidden="true">iℏ ∂ψ/∂t = Ĥψ</div>
-        <div class="pse-formula pse-f2" aria-hidden="true">S = ∫ L(q, q̇, t) dt</div>
-        <div class="pse-formula pse-f3" aria-hidden="true">∇ × B = μ₀J + μ₀ε₀ ∂E/∂t</div>
-        <div class="pse-formula pse-f4" aria-hidden="true">ds² = -(1 - 2GM/rc²)dt² + ...</div>
-
-        <!-- Central Text Scrubber -->
-        <div class="pse-content">
-          <p class="pse-kicker">YOU CAN</p>
-
-          <div class="pse-words-stack" id="pseWordsStack">
-            <span class="pse-word active" data-step="0">theorize.</span>
-            <span class="pse-word" data-step="1">integrate.</span>
-            <span class="pse-word" data-step="2">analyze.</span>
-            <span class="pse-word" data-step="3">discover.</span>
-          </div>
-
-          <!-- Climax Finale with PUPS Logo -->
-          <div class="pse-finale" id="pseFinale" aria-hidden="true">
-            <div class="pse-logo-wrap">
-              <img class="pse-logo" src="pups-logo.png" alt="Presidency University Physics Society Emblem" width="76" height="76">
-              <div class="pse-logo-aura"></div>
-            </div>
-            <h2 class="pse-finale-title">... Physics.</h2>
-            <span class="pse-finale-sub">Presidency University Physics Society</span>
-          </div>
-
-          <!-- Progress tracker and skip button -->
-          <div class="pse-bottom-bar">
-            <div class="pse-dots" id="pseDots" aria-hidden="true">
-              <span class="pse-dot active"></span>
-              <span class="pse-dot"></span>
-              <span class="pse-dot"></span>
-              <span class="pse-dot"></span>
-              <span class="pse-dot"></span>
-            </div>
-            <a href="#heroSection" class="pse-skip-btn" id="pseSkipBtn">Skip to explore ↓</a>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <!-- Hero Section -->
     <section class="hero" id="heroSection">
@@ -189,6 +217,9 @@
     <div>
       <strong>Presidency University Physics Society</strong>
       <span>Built with HTML, CSS and vanilla JavaScript.</span>
+      <button class="text-link" onclick="replayScrollIntro()" style="background:none; border:none; padding:0; margin-left:14px; font-size:12px; color:var(--cyan); cursor:pointer;">
+        ✨ Replay Scroll Intro
+      </button>
     </div>
     <div>
       <span>© 2026 Presidency University</span>
