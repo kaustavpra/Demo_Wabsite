@@ -36,10 +36,10 @@
     </div>
 
     <!-- Central 3-Line Alignment Tumbler -->
-    <div class="pse-lockup-container">
-      <!-- Fixed Anchor: "You Can" -->
+    <div class="pse-lockup-container" id="pseLockupContainer">
+      <!-- Fixed Anchor: "You Can Do" -->
       <div class="pse-fixed-anchor">
-        <span class="pse-anchor-text">You Can</span>
+        <span class="pse-anchor-text">You Can Do</span>
       </div>
 
       <!-- 3-Line Vertical Tumbler Window -->
@@ -61,15 +61,23 @@
           <div class="pse-tumbler-row" data-index="3">
             <span class="pse-verb-word neon-violet">Discover.</span>
           </div>
-          <!-- Row 4: ... Physics Finale -->
-          <div class="pse-tumbler-row pse-finale-row" data-index="4">
-            <div class="pse-emblem-wrap">
-              <img class="pse-emblem-img" src="pups-logo.png" alt="PUPS Emblem" width="48" height="48">
-              <div class="pse-emblem-aura"></div>
-            </div>
-            <span class="pse-verb-word neon-emerald">... Physics.</span>
+          <!-- Row 4: Physics Finale -->
+          <div class="pse-tumbler-row" data-index="4">
+            <span class="pse-verb-word neon-emerald">Physics.</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Medium PUPS Logo Stage (Appears on next scroll after "You Can Do Physics") -->
+    <div class="pse-logo-stage" id="pseLogoStage" aria-label="PUPS Emblem Stage" role="region">
+      <div class="pse-medium-logo-wrap">
+        <div class="pse-medium-logo-aura"></div>
+        <img class="pse-medium-logo" src="pups-logo.png" alt="PUPS Emblem" width="104" height="104">
+      </div>
+      <div class="pse-medium-logo-text">
+        <h2 class="pse-medium-logo-title">Presidency University Physics Society</h2>
+        <p class="pse-medium-logo-sub">Excellence in Theoretical &amp; Experimental Physics</p>
       </div>
     </div>
 
@@ -81,10 +89,11 @@
         <span class="pse-dot"></span>
         <span class="pse-dot"></span>
         <span class="pse-dot"></span>
+        <span class="pse-dot"></span>
       </div>
       <button class="pse-enter-btn" id="pseEnterBtn">
         <span class="pse-enter-pulse"></span>
-        <span id="pseEnterBtnText">Scroll to align words (4–6 ticks) ↓</span>
+        <span id="pseEnterBtnText">Scroll to align words (1/6) ↓</span>
       </button>
     </div>
   </div>

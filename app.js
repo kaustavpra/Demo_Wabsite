@@ -3812,13 +3812,16 @@ function init3DMainPage() {
 
 // ============================================================
 //  DEDICATED TRANSPARENT SCROLL ENTRANCE PORTAL
-//  "You Can" fixed anchor with 3-line vertical tumbler slot
+//  "You Can Do" fixed anchor with 3-line vertical tumbler slot
+//  and dedicated medium PUPS logo finale stage
 // ============================================================
 function initDedicatedScrollEntrance() {
   const portal = qs('#pseDedicatedPortal');
   if (!portal) return;
 
   const canvas = qs('#psePortalCanvas');
+  const lockupContainer = qs('#pseLockupContainer');
+  const logoStage = qs('#pseLogoStage');
   const track = qs('#pseTumblerTrack');
   const rows = qsa('.pse-tumbler-row');
   const dots = qsa('#pseStepDots .pse-dot');
@@ -3832,8 +3835,8 @@ function initDedicatedScrollEntrance() {
   let isDismissed = false;
   let animFrameId = null;
 
-  // Row height: 84px on desktop, 58px on mobile
-  const getRowHeight = () => (window.innerWidth <= 768 ? 58 : 84);
+  // Row height: 84px on desktop, 56px on mobile
+  const getRowHeight = () => (window.innerWidth <= 768 ? 56 : 84);
 
   // Exit entrance portal to main page
   const exitPortal = () => {
@@ -3879,20 +3882,27 @@ function initDedicatedScrollEntrance() {
     });
   }
 
+  if (logoStage) {
+    logoStage.addEventListener('click', (e) => {
+      e.preventDefault();
+      exitPortal();
+    });
+  }
+
   // Lock initial body overflow while on entrance
   document.body.style.overflow = 'hidden';
 
-  // Wheel interaction (4–6 ticks to complete full progression)
+  // Wheel interaction (4–6 ticks through verbs to PUPS logo and exit)
   portal.addEventListener('wheel', (e) => {
     if (isDismissed) return;
     e.preventDefault();
 
     // Normalizing wheel delta: ~0.45 step per natural mouse notch
-    const delta = Math.sign(e.deltaY) * 0.42;
-    targetStep = Math.max(0, Math.min(4.3, targetStep + delta));
+    const delta = Math.sign(e.deltaY) * 0.45;
+    targetStep = Math.max(0, Math.min(5.4, targetStep + delta));
 
-    // When scrolled to finale, next scroll triggers entrance exit!
-    if (targetStep >= 4.15) {
+    // When scrolled past medium PUPS logo stage, exit portal into main page!
+    if (targetStep >= 5.25) {
       exitPortal();
     }
   }, { passive: false });
@@ -3912,8 +3922,8 @@ function initDedicatedScrollEntrance() {
     const diff = touchStartY - touchCurrentY;
     touchStartY = touchCurrentY;
 
-    targetStep = Math.max(0, Math.min(4.3, targetStep + diff * 0.018));
-    if (targetStep >= 4.15) {
+    targetStep = Math.max(0, Math.min(5.4, targetStep + diff * 0.018));
+    if (targetStep >= 5.25) {
       exitPortal();
     }
   }, { passive: false });
@@ -3923,8 +3933,8 @@ function initDedicatedScrollEntrance() {
     if (isDismissed) return;
     if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
       e.preventDefault();
-      targetStep = Math.min(4.3, targetStep + 0.5);
-      if (targetStep >= 4.15) exitPortal();
+      targetStep = Math.min(5.4, targetStep + 0.5);
+      if (targetStep >= 5.25) exitPortal();
     } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
       e.preventDefault();
       targetStep = Math.max(0, targetStep - 0.5);
@@ -3936,7 +3946,7 @@ function initDedicatedScrollEntrance() {
   // Smooth visual updater
   function updateTumblerVisuals(val) {
     const rowH = getRowHeight();
-    const translateY = -val * rowH;
+    const translateY = -Math.min(4, val) * rowH;
     if (track) {
       track.style.transform = `translate3d(0, ${translateY.toFixed(1)}px, 0)`;
     }
@@ -3945,7 +3955,7 @@ function initDedicatedScrollEntrance() {
     rows.forEach((row, idx) => {
       const dist = Math.abs(val - idx);
       if (dist < 0.48) {
-        // Active in center slot beside "You Can"
+        // Active in center slot beside "You Can Do"
         const factor = 1 - (dist / 0.48);
         row.style.opacity = (0.35 + factor * 0.65).toFixed(2);
         row.style.transform = `scale(${(0.95 + factor * 0.05).toFixed(2)})`;
@@ -3963,22 +3973,67 @@ function initDedicatedScrollEntrance() {
       }
     });
 
-    // Update dots (0 to 4)
-    const activeStage = Math.min(4, Math.round(val));
+    // Cross-fade between tumbler lockup and medium PUPS logo stage
+    if (val <= 4.15) {
+      if (lockupContainer) {
+        lockupContainer.style.opacity = '1';
+        lockupContainer.style.transform = 'translateY(0) scale(1)';
+        lockupContainer.style.pointerEvents = 'auto';
+      }
+      if (logoStage) {
+        logoStage.style.opacity = '0';
+        logoStage.style.transform = 'translate(-50%, -50%) scale(0.92)';
+        logoStage.style.pointerEvents = 'none';
+      }
+    } else if (val > 4.15 && val < 4.85) {
+      const t = (val - 4.15) / 0.7; // 0 to 1
+      if (lockupContainer) {
+        lockupContainer.style.opacity = (1 - t).toFixed(3);
+        lockupContainer.style.transform = `translateY(${(-18 * t).toFixed(1)}px) scale(${(1 - 0.05 * t).toFixed(3)})`;
+        lockupContainer.style.pointerEvents = 'none';
+      }
+      if (logoStage) {
+        logoStage.style.opacity = t.toFixed(3);
+        logoStage.style.transform = `translate(-50%, calc(-50% + ${(18 * (1 - t)).toFixed(1)}px)) scale(${(0.92 + 0.08 * t).toFixed(3)})`;
+        logoStage.style.pointerEvents = 'auto';
+      }
+    } else {
+      // val >= 4.85: Fully on medium PUPS logo stage
+      if (lockupContainer) {
+        lockupContainer.style.opacity = '0';
+        lockupContainer.style.transform = 'translateY(-18px) scale(0.95)';
+        lockupContainer.style.pointerEvents = 'none';
+      }
+      if (logoStage) {
+        logoStage.style.opacity = '1';
+        logoStage.style.transform = 'translate(-50%, -50%) scale(1)';
+        logoStage.style.pointerEvents = 'auto';
+      }
+    }
+
+    // Update dots (0 to 5)
+    const activeStage = Math.min(5, Math.round(val));
     dots.forEach((dot, idx) => {
       dot.classList.toggle('active', idx === activeStage);
     });
 
     // Update footer button state
-    if (val >= 3.8) {
-      if (enterBtnText) enterBtnText.textContent = 'Enter Main Website ↓';
+    if (val >= 4.85) {
+      if (enterBtnText) enterBtnText.textContent = 'Enter Main Website →';
       if (enterBtn) {
         enterBtn.style.borderColor = 'var(--cyan)';
         enterBtn.style.color = 'var(--cyan)';
         enterBtn.style.boxShadow = '0 0 20px var(--cyan-glow)';
       }
+    } else if (val >= 3.8) {
+      if (enterBtnText) enterBtnText.textContent = 'Scroll for PUPS Emblem (5/6) ↓';
+      if (enterBtn) {
+        enterBtn.style.borderColor = '';
+        enterBtn.style.color = '';
+        enterBtn.style.boxShadow = '';
+      }
     } else {
-      if (enterBtnText) enterBtnText.textContent = `Scroll to align words (${activeStage + 1}/5) ↓`;
+      if (enterBtnText) enterBtnText.textContent = `Scroll to align words (${activeStage + 1}/6) ↓`;
       if (enterBtn) {
         enterBtn.style.borderColor = '';
         enterBtn.style.color = '';

@@ -3058,39 +3058,94 @@ footer strong { color: var(--text); }
 [data-theme="bright"] .neon-violet { color: #7c3aed; text-shadow: 0 0 16px rgba(124, 58, 237, 0.35); }
 [data-theme="bright"] .neon-emerald { color: #059669; text-shadow: 0 0 16px rgba(5, 150, 105, 0.35); }
 
-/* PUPS Emblem in finale row */
-.pse-finale-row {
+/* Medium PUPS Logo Stage (Appears on next scroll after "You Can Do Physics") */
+.pse-logo-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  z-index: 12;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+  cursor: pointer;
 }
 
-.pse-emblem-wrap {
+.pse-medium-logo-wrap {
   position: relative;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
+  width: 110px;
+  height: 110px;
   display: grid;
   place-items: center;
 }
 
-.pse-emblem-img {
-  width: 44px;
-  height: 44px;
+.pse-medium-logo {
+  width: 100px;
+  height: 100px;
   object-fit: contain;
   position: relative;
   z-index: 2;
-  filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.7));
+  filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.8)) drop-shadow(0 0 50px rgba(52, 211, 153, 0.45));
+  animation: pseLogoHover 3s ease-in-out infinite alternate;
 }
 
-.pse-emblem-aura {
+.pse-medium-logo-aura {
   position: absolute;
-  inset: -6px;
+  inset: -16px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.4) 0%, transparent 70%);
-  filter: blur(8px);
-  animation: pseAuraPulse 2.4s ease-in-out infinite alternate;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(52, 211, 153, 0.25) 45%, transparent 70%);
+  filter: blur(14px);
+  animation: pseAuraPulse 2.2s ease-in-out infinite alternate;
   z-index: 1;
+}
+
+.pse-medium-logo-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pse-medium-logo-title {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 3.8vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text-heading);
+  margin: 0;
+  text-shadow: 0 0 28px rgba(255, 255, 255, 0.25);
+}
+
+.pse-medium-logo-sub {
+  font-family: var(--font-mono);
+  font-size: clamp(11px, 1.4vw, 13px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin: 0;
+  opacity: 0.9;
+}
+
+[data-theme="bright"] .pse-medium-logo {
+  filter: drop-shadow(0 0 16px rgba(2, 132, 199, 0.45));
+}
+[data-theme="bright"] .pse-medium-logo-aura {
+  background: radial-gradient(circle, rgba(2, 132, 199, 0.25) 0%, rgba(5, 150, 105, 0.15) 45%, transparent 70%);
+}
+[data-theme="bright"] .pse-medium-logo-title {
+  text-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes pseLogoHover {
+  0% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-6px) scale(1.02); }
 }
 
 @keyframes pseAuraPulse {
@@ -3169,28 +3224,41 @@ footer strong { color: var(--text); }
 /* Responsive adjustment for Mobile */
 @media (max-width: 768px) {
   :root {
-    --pse-row-h: 58px;
+    --pse-row-h: 56px;
   }
   .pse-dedicated-portal {
     padding: 18px 20px 24px;
   }
   .pse-lockup-container {
-    gap: 14px;
+    gap: 12px;
+  }
+  .pse-anchor-text {
+    font-size: clamp(26px, 6.2vw, 42px);
+  }
+  .pse-verb-word {
+    font-size: clamp(24px, 5.8vw, 40px);
+  }
+  .pse-tumbler-window {
+    width: clamp(160px, 46vw, 240px);
   }
   .pse-portal-footer {
     flex-direction: column;
     gap: 16px;
   }
-  .pse-tumbler-window {
-    width: 240px;
+  .pse-medium-logo-wrap {
+    width: 88px;
+    height: 88px;
   }
-  .pse-emblem-wrap {
-    width: 38px;
-    height: 38px;
+  .pse-medium-logo {
+    width: 80px;
+    height: 80px;
   }
-  .pse-emblem-img {
-    width: 34px;
-    height: 34px;
+  .pse-medium-logo-title {
+    font-size: 22px;
+  }
+  .pse-medium-logo-sub {
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
   }
 }
 
