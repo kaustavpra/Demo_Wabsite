@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interactive Lab | Presidency University Physics Society</title>
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>Interactive Physics Lab | Presidency University Physics Society</title>
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
   <link rel="stylesheet" href="styles.css">
@@ -11,8 +13,10 @@
     (function(){
       try {
         var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
-        if (!s) { location.replace('login.html'); }
-      } catch(e) {}
+        if (!s) { location.replace('login.html'); return; }
+        var parsed = JSON.parse(s);
+        if (!parsed || !parsed.id) { location.replace('login.html'); }
+      } catch(e) { location.replace('login.html'); }
     })();
   </script>
 </head>
@@ -31,61 +35,141 @@
       </span>
     </a>
     <div class="header-right-tools">
-      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+      <button class="mood-toggle-btn" id="moodToggle" type="button" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
         <span class="mood-icon" aria-hidden="true">🌙</span>
         <span class="mood-label">Dark</span>
       </button>
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
     </div>
     <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
       <a href="student.html">Student Portal</a>
+      <a class="active" href="lab.html">Interactive Lab</a>
       <a href="formulas.html">Formulas</a>
       <a href="forum.html">Forum</a>
-      <a class="login-link" href="javascript:logout()">Logout</a>
+      <a class="login-link" href="#logout" id="logoutNavBtn">Logout</a>
     </nav>
   </header>
 
   <!-- ========== MAIN CONTENT ========== -->
   <main id="mainContent" class="content-wrap">
-    <section class="page-hero">
-      <p class="eyebrow">STUDENT ACADEMIC SPACE</p>
-      <h1>Interactive Lab</h1>
-      <p>A read-only physics laboratory for students. The controls demonstrate concepts; they do not change society records.</p>
+    <section class="page-hero" style="padding-bottom:24px;">
+      <p class="eyebrow">COMPUTATIONAL PHYSICS LABORATORY</p>
+      <h1>Interactive Physics Workbench</h1>
+      <p>Real-time numerical integration and wave mechanics simulations. Adjust physical parameters, switch between 4 experimental modules, inspect live telemetry, and export CSV trajectories.</p>
     </section>
 
-    <section class="feature-panel">
-      <div>
-        <p class="eyebrow">ORBITAL DYNAMICS</p>
-        <h2>Restricted three-body playground</h2>
-        <p>Move through the simulation controls to observe how gravitational parameters alter trajectories.</p>
-        <div class="hero-actions">
-          <button class="btn primary" id="runLab" type="button">Run simulation</button>
-          <button class="btn ghost" id="resetLab" type="button">Reset</button>
+    <!-- Experiment Module Selector Tabs -->
+    <div class="lab-tabs-bar" role="tablist" aria-label="Select physics simulation experiment" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+      <button class="btn primary lab-exp-tab active" data-exp="orbital" role="tab" aria-selected="true" type="button">
+        01 · Restricted 3-Body Orbit
+      </button>
+      <button class="btn ghost lab-exp-tab" data-exp="pendulum" role="tab" aria-selected="false" type="button">
+        02 · Damped Driven Pendulum
+      </button>
+      <button class="btn ghost lab-exp-tab" data-exp="quantum" role="tab" aria-selected="false" type="button">
+        03 · Quantum Wavepacket Tunneling
+      </button>
+      <button class="btn ghost lab-exp-tab" data-exp="optics" role="tab" aria-selected="false" type="button">
+        04 · Double-Slit Interference
+      </button>
+    </div>
+
+    <!-- Main Interactive Workbench Grid -->
+    <div class="lab-workbench-grid" style="display:grid; grid-template-columns: 1.65fr 1fr; gap:22px; align-items:start;">
+      <!-- Left: Interactive Canvas & Playback Controls -->
+      <section class="panel" style="padding:20px;" aria-label="Simulation Viewport">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+          <div>
+            <span class="kicker" id="labExpKicker">EXPERIMENT 01 · CELESTIAL MECHANICS</span>
+            <h2 id="labExpTitle" style="margin:2px 0 0; font-size:24px;">Restricted Three-Body Playground</h2>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge" id="labState" role="status" aria-live="polite" style="border-color:var(--green); color:var(--green);">RUNNING</span>
+            <span class="badge" id="labFpsBadge" style="font-family:var(--font-mono); font-size:11px;">60 FPS</span>
+          </div>
         </div>
-      </div>
-      <div class="equation-card">
-        <span id="labState" role="status" aria-live="polite">READY</span>
-        <div class="equation" aria-label="Gravitational force equation: F equals G times m1 times m2 over r squared">F = G m₁m₂ / r²</div>
-        <small>visual demonstration • read-only</small>
-      </div>
-    </section>
 
-    <section class="panel">
-      <h2>Lab status</h2>
-      <p id="labMessage" role="status" aria-live="polite">The simulation is ready.</p>
-    </section>
+        <!-- Canvas Viewport -->
+        <div class="lab-canvas-container" style="position:relative; width:100%; height:420px; background:#050811; border:1px solid var(--line); border-radius:8px; overflow:hidden;">
+          <canvas id="labSimCanvas" width="800" height="420" style="width:100%; height:100%; display:block; cursor:crosshair;" aria-label="Interactive physics simulation canvas"></canvas>
+          <div id="labCanvasOverlayHint" style="position:absolute; bottom:10px; left:12px; font-family:var(--font-mono); font-size:11px; color:rgba(226,232,240,0.75); background:rgba(7,11,20,0.75); padding:4px 10px; border-radius:4px; pointer-events:none; border:1px solid rgba(255,255,255,0.1);">
+            Click anywhere on canvas to reposition test particle / wave center
+          </div>
+        </div>
+
+        <!-- Simulation Action Toolbar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn primary" id="runLab" type="button" style="padding:9px 18px; font-size:13px;">⏸ Pause</button>
+            <button class="btn ghost" id="stepLab" type="button" style="padding:9px 14px; font-size:13px;">⏭ Step</button>
+            <button class="btn ghost" id="resetLab" type="button" style="padding:9px 14px; font-size:13px;">↺ Reset</button>
+            <button class="btn ghost" id="clearTrailBtn" type="button" style="padding:9px 14px; font-size:13px;">🧹 Clear Trail</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="mini-btn" id="exportLabCsvBtn" type="button" title="Download recorded telemetry as CSV">📊 Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Live Telemetry Readout Bar -->
+        <div id="labTelemetryGrid" class="dash-grid" style="margin-top:16px; grid-template-columns: repeat(4, 1fr); gap:10px;">
+          <div class="stat" style="padding:10px 12px;">
+            <span id="teleLabel1" style="font-size:10px;">Time (t)</span>
+            <strong id="teleVal1" style="font-size:16px; font-family:var(--font-mono);">0.00 s</strong>
+          </div>
+          <div class="stat" style="padding:10px 12px;">
+            <span id="teleLabel2" style="font-size:10px;">Kinetic (T)</span>
+            <strong id="teleVal2" style="font-size:16px; font-family:var(--font-mono); color:var(--cyan);">0.00</strong>
+          </div>
+          <div class="stat" style="padding:10px 12px;">
+            <span id="teleLabel3" style="font-size:10px;">Potential (V)</span>
+            <strong id="teleVal3" style="font-size:16px; font-family:var(--font-mono); color:var(--gold);">0.00</strong>
+          </div>
+          <div class="stat" style="padding:10px 12px;">
+            <span id="teleLabel4" style="font-size:10px;">Total Energy (E)</span>
+            <strong id="teleVal4" style="font-size:16px; font-family:var(--font-mono); color:var(--green);">0.00</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Parameter Sliders, Presets, & Governing Equations -->
+      <div style="display:flex; flex-direction:column; gap:18px;">
+        <section class="panel" aria-labelledby="labControlsHeading">
+          <p class="kicker">PARAMETER CONTROLS</p>
+          <h2 id="labControlsHeading" style="margin:4px 0 14px; font-size:20px;">Physical Constants &amp; Initial State</h2>
+
+          <!-- Dynamic Sliders Container -->
+          <div id="labSlidersContainer" style="display:flex; flex-direction:column; gap:14px;"></div>
+
+          <!-- Quick Presets -->
+          <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
+            <span style="font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); display:block; margin-bottom:8px;">Quick Experimental Presets</span>
+            <div id="labPresetsBar" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+          </div>
+        </section>
+
+        <!-- Governing Equations & Physical Interpretation -->
+        <section class="equation-card" style="padding:20px;">
+          <span class="kicker" style="color:var(--cyan);">GOVERNING DIFFERENTIAL EQUATION</span>
+          <div class="equation" id="labEquationDisplay" style="font-size:20px; margin:10px 0;">r̈ = −G M₁ r₁/|r₁|³ − G M₂ r₂/|r₂|³</div>
+          <p id="labMessage" role="status" aria-live="polite" style="font-size:13px; color:var(--muted); margin:8px 0 0; line-height:1.6;">
+            Symplectic Velocity-Verlet integrator active. Adjust primary masses or initial velocity to explore stable Lagrange orbits, chaotic slingshots, and Poincaré trajectories.
+          </p>
+        </section>
+      </div>
+    </div>
   </main>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ========== SITE FOOTER ========== -->
   <footer>
     <div>
       <strong>Presidency University Physics Society</strong>
-      <span>Interactive virtual laboratory</span>
+      <span>Interactive Virtual Physics Laboratory</span>
     </div>
     <div>© 2026 Presidency University</div>
   </footer>
 
-  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

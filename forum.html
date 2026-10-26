@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Academic Forum | Presidency University Physics Society</title>
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
@@ -11,8 +13,10 @@
     (function(){
       try {
         var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
-        if (!s) { location.replace('login.html'); }
-      } catch(e) {}
+        if (!s) { location.replace('login.html'); return; }
+        var parsed = JSON.parse(s);
+        if (!parsed || !parsed.id) { location.replace('login.html'); }
+      } catch(e) { location.replace('login.html'); }
     })();
   </script>
 </head>
@@ -31,60 +35,131 @@
       </span>
     </a>
     <div class="header-right-tools">
-      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+      <button class="mood-toggle-btn" id="moodToggle" type="button" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
         <span class="mood-icon" aria-hidden="true">🌙</span>
         <span class="mood-label">Dark</span>
       </button>
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
     </div>
     <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
       <a href="student.html">Student Portal</a>
-      <a href="lab.html">Lab</a>
+      <a href="lab.html">Interactive Lab</a>
       <a href="formulas.html">Formulas</a>
-      <a class="login-link" href="javascript:logout()">Logout</a>
+      <a class="active" href="forum.html">Forum</a>
+      <a class="login-link" href="#logout" id="logoutNavBtn">Logout</a>
     </nav>
   </header>
 
   <!-- ========== MAIN CONTENT ========== -->
   <main id="mainContent" class="content-wrap">
-    <section class="page-hero">
-      <p class="eyebrow">ACADEMIC DISCUSSION</p>
-      <h1>Forum rooms</h1>
-      <p>Students and society members can read academic discussions here. Editing, moderation, and deletion remain outside Student permissions.</p>
+    <section class="page-hero" style="padding-bottom:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
+        <div>
+          <p class="eyebrow">PEER ACADEMIC DISCUSSION &amp; Q&amp;A</p>
+          <h1>Academic Forum Rooms</h1>
+          <p>Collaborate with fellow physics students and society members. Ask questions on derivations, share computational tips, and discuss colloquium papers.</p>
+        </div>
+        <button class="btn primary" id="toggleNewThreadBtn" type="button">
+          + Start New Discussion
+        </button>
+      </div>
     </section>
 
-    <div class="two-col">
-      <article class="panel">
+    <!-- Collapsible New Discussion Thread Composer -->
+    <section class="panel" id="newThreadComposer" style="display:none; margin-bottom:24px; border-color:var(--cyan);" aria-labelledby="composerHeading">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <p class="kicker" style="color:var(--cyan);">NEW ACADEMIC THREAD</p>
+          <h2 id="composerHeading" style="margin:2px 0 0;">Post a Question or Derivation Note</h2>
+        </div>
+        <button class="mini-btn" id="closeComposerBtn" type="button">✕ Cancel</button>
+      </div>
+      <form id="newForumThreadForm" novalidate>
+        <div class="form-grid">
+          <div class="field">
+            <label for="threadTitleInput">Discussion Title *</label>
+            <input id="threadTitleInput" type="text" maxlength="140" placeholder="e.g. Symplectic vs. RK4 drift in restricted 3-body orbits" required>
+          </div>
+          <div class="field">
+            <label for="threadCategorySelect">Discussion Room *</label>
+            <select id="threadCategorySelect" required>
+              <option value="Astrophysics">Astrophysics · Orbital dynamics &amp; chaos</option>
+              <option value="Quantum / Optics">Quantum / Optics · Modern physics discussions</option>
+              <option value="Materials Physics">Materials Physics · Experimental methods</option>
+              <option value="Computational Physics">Computational Physics · Code &amp; modelling</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="threadTagsInput">Topic Tags (comma-separated, optional)</label>
+            <input id="threadTagsInput" type="text" maxlength="100" placeholder="e.g. Hamiltonian, Verlet, LIGO, Berry Curvature">
+          </div>
+          <div class="field full">
+            <label for="threadBodyInput">Question / Discussion Details *</label>
+            <textarea id="threadBodyInput" rows="4" maxlength="3000" placeholder="State your physics question, assumptions, or equations clearly..." required></textarea>
+          </div>
+          <div class="field full" style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn primary" type="submit">Publish Discussion Thread →</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Discussion Room Cards (Filter by Room) -->
+    <div class="card-grid" id="forumRoomsGrid" style="grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-bottom:24px;">
+      <article class="panel forum-room-card active" data-room="all" tabindex="0" role="button" style="cursor:pointer; padding:16px;">
+        <p class="kicker">All Rooms</p>
+        <h3 style="margin:4px 0 6px; font-size:18px;">All Discussions</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0;">View threads across all 4 physics rooms.</p>
+      </article>
+      <article class="panel forum-room-card" data-room="Astrophysics" tabindex="0" role="button" style="cursor:pointer; padding:16px;">
         <p class="kicker">Astrophysics</p>
-        <h2>Orbital dynamics &amp; chaos</h2>
-        <p>Questions on the restricted three-body problem, numerical integration, and phase-space analysis.</p>
+        <h3 style="margin:4px 0 6px; font-size:18px;">Orbital dynamics &amp; chaos</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0;">Three-body problem, numerical integration, and phase-space analysis.</p>
       </article>
-
-      <article class="panel">
-        <p class="kicker">Quantum / optics</p>
-        <h2>Modern physics discussions</h2>
-        <p>Seminar questions, formula discussions, and reading notes from society activities.</p>
+      <article class="panel forum-room-card" data-room="Quantum / Optics" tabindex="0" role="button" style="cursor:pointer; padding:16px;">
+        <p class="kicker">Quantum / Optics</p>
+        <h3 style="margin:4px 0 6px; font-size:18px;">Modern physics discussions</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0;">Seminar questions, wavefunctions, and quantum optics notes.</p>
       </article>
-
-      <article class="panel">
-        <p class="kicker">Materials physics</p>
-        <h2>Experimental methods</h2>
-        <p>Shared academic notes on thermoelectrics, light scattering, and energy-storage materials.</p>
+      <article class="panel forum-room-card" data-room="Materials Physics" tabindex="0" role="button" style="cursor:pointer; padding:16px;">
+        <p class="kicker">Materials Physics</p>
+        <h3 style="margin:4px 0 6px; font-size:18px;">Experimental methods</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0;">Thermoelectrics, condensed matter, and spectroscopy.</p>
       </article>
-
-      <article class="panel">
-        <p class="kicker">Computational physics</p>
-        <h2>Code &amp; modelling</h2>
-        <p>Discussion space for numerical methods, simulation design, and reproducible scientific computing.</p>
+      <article class="panel forum-room-card" data-room="Computational Physics" tabindex="0" role="button" style="cursor:pointer; padding:16px;">
+        <p class="kicker">Computational Physics</p>
+        <h3 style="margin:4px 0 6px; font-size:18px;">Code &amp; modelling</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0;">Numerical PDE solvers, Monte Carlo, and scientific computing.</p>
       </article>
     </div>
+
+    <!-- Search & Sort Toolbar -->
+    <div class="toolbar" role="search" aria-label="Search and sort forum threads" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+      <input
+        class="search"
+        id="forumSearchInput"
+        type="search"
+        placeholder="Search discussions by title, author, tag, or content..."
+        aria-label="Search forum discussions"
+        style="flex:1; min-width:240px;">
+      <select class="search" id="forumSortSelect" aria-label="Sort forum threads" style="max-width:200px;">
+        <option value="popular">Sort: Most Upvoted</option>
+        <option value="newest">Sort: Newest First</option>
+        <option value="replies">Sort: Most Replies</option>
+      </select>
+    </div>
+
+    <!-- Forum Threads Feed -->
+    <div id="forumThreadsContainer" style="display:flex; flex-direction:column; gap:16px;" aria-live="polite"></div>
   </main>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ========== SITE FOOTER ========== -->
   <footer>
     <div>
       <strong>Presidency University Physics Society</strong>
-      <span>Academic forum &amp; discussion archive</span>
+      <span>Academic Forum &amp; Discussion Archive</span>
     </div>
     <div>© 2026 Presidency University</div>
   </footer>

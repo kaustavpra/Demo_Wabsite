@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Student Portal | Presidency University Physics Society</title>
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
@@ -11,8 +13,10 @@
     (function(){
       try {
         var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
-        if (!s) { location.replace('login.html'); }
-      } catch(e) {}
+        if (!s) { location.replace('login.html'); return; }
+        var parsed = JSON.parse(s);
+        if (!parsed || !parsed.id) { location.replace('login.html'); }
+      } catch(e) { location.replace('login.html'); }
     })();
   </script>
 </head>
@@ -31,19 +35,21 @@
       </span>
     </a>
     <div class="header-right-tools">
-      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+      <button class="mood-toggle-btn" id="moodToggle" type="button" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
         <span class="mood-icon" aria-hidden="true">🌙</span>
         <span class="mood-label">Dark</span>
       </button>
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
     </div>
     <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
       <a href="index.html">Home</a>
+      <a class="active" href="student.html">Dashboard</a>
+      <a href="lab.html">Interactive Lab</a>
+      <a href="formulas.html">Formulas</a>
+      <a href="forum.html">Forum</a>
       <a href="events.html">Events</a>
       <a href="colloquium.html">Colloquium</a>
-      <a href="team.html">Team</a>
-      <a href="contact.html">Contact</a>
-      <a class="login-link" href="javascript:logout()">Logout</a>
+      <a class="login-link" href="#logout" id="logoutNavBtn">Logout</a>
     </nav>
   </header>
 
@@ -51,72 +57,164 @@
   <main id="mainContent" class="dashboard-shell">
     <div class="dashboard-head">
       <div>
-        <p class="eyebrow">STUDENT ACCESS</p>
+        <p class="eyebrow">STUDENT ACADEMIC WORKSPACE</p>
         <h1>Welcome, <span id="studentId">Student</span></h1>
-        <p>Students can explore the academic side of the society without any editing or administrative permissions.</p>
+        <p>Explore real-time interactive physics simulations, solve equations with live calculators, and collaborate with peers in the academic discussion forum.</p>
       </div>
-      <span class="role-badge">Student · Read only</span>
-    </div>
-
-    <!-- Quick status grid -->
-    <div class="dash-grid">
-      <div class="stat">
-        <span>Interactive lab</span>
-        <strong>OPEN</strong>
-      </div>
-      <div class="stat">
-        <span>Math formulas</span>
-        <strong>OPEN</strong>
-      </div>
-      <div class="stat">
-        <span>Academic forum</span>
-        <strong>OPEN</strong>
-      </div>
-      <div class="stat">
-        <span>Editing</span>
-        <strong>NONE</strong>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+        <span class="role-badge" id="studentRoleBadge">Student · Interactive Academic Access</span>
+        <small id="studentEmailBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--muted);"></small>
       </div>
     </div>
 
-    <!-- Student Cards -->
-    <div class="card-grid">
-      <a class="card" href="lab.html">
-        <div class="meta">01 · Interactive lab</div>
-        <h3>Explore the physics lab</h3>
-        <p>Interactive simulations and visual experiments are available to students without edit controls.</p>
+    <!-- Live Academic Telemetry Grid -->
+    <div class="dash-grid" id="studentQuickStats">
+      <div class="stat">
+        <span>Virtual Physics Labs</span>
+        <strong id="statLabRuns" style="color:var(--cyan);">4 Modules</strong>
+        <span class="stat-sub">3-Body, Pendulum, Wave &amp; Optics</span>
+      </div>
+      <div class="stat">
+        <span>Formula Compendium</span>
+        <strong id="statFormulaCount" style="color:var(--gold);">18 Equations</strong>
+        <span class="stat-sub" id="statBookmarkedCount">0 Bookmarked · Live Solvers</span>
+      </div>
+      <div class="stat">
+        <span>Academic Forum</span>
+        <strong id="statForumThreads" style="color:var(--green);">Active</strong>
+        <span class="stat-sub" id="statForumReplies">Peer Q&amp;A &amp; Study Threads</span>
+      </div>
+      <div class="stat">
+        <span>Society Activity</span>
+        <strong id="statUpcomingCount" style="color:var(--violet);">Live</strong>
+        <span class="stat-sub">Upcoming Events &amp; Colloquia</span>
+      </div>
+    </div>
+
+    <!-- Primary Student Portal Modules -->
+    <div class="card-grid" style="margin-top:24px;">
+      <a class="card tilt-card" href="lab.html" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div class="meta">01 · Interactive Physics Lab</div>
+          <h3>Run real-time simulations</h3>
+          <p>Experiment with 4 live HTML5 Canvas physics engines: Restricted 3-Body Orbital Dynamics, Damped Driven Pendulum with Phase Space, Quantum Wavepacket Tunneling, and Double-Slit Interference.</p>
+        </div>
+        <div style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+          <span class="badge" style="border-color:var(--cyan); color:var(--cyan);">4 Live Engines</span>
+          <span style="font-family:var(--font-mono); font-size:12px; color:var(--cyan);">Launch Lab →</span>
+        </div>
       </a>
 
-      <a class="card" href="formulas.html">
-        <div class="meta">02 · Math gallery</div>
-        <h3>Browse mathematical formulas</h3>
-        <p>Read core equations and their physical interpretation.</p>
+      <a class="card tilt-card" href="formulas.html" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div class="meta">02 · Mathematical Compendium</div>
+          <h3>Browse formulas &amp; calculators</h3>
+          <p>Search 18 core equations across Classical Mechanics, Quantum Physics, Electrodynamics, Relativity, and Statistical Mechanics—complete with variable definitions, interactive solvers, and a Fundamental Constants reference.</p>
+        </div>
+        <div style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+          <span class="badge" style="border-color:var(--gold); color:var(--gold);">Interactive Solvers</span>
+          <span style="font-family:var(--font-mono); font-size:12px; color:var(--gold);">Open Compendium →</span>
+        </div>
       </a>
 
-      <a class="card" href="forum.html">
-        <div class="meta">03 · Academic forums</div>
-        <h3>Read the discussion rooms</h3>
-        <p>Access academic discussions and society knowledge without moderation or editing rights.</p>
+      <a class="card tilt-card" href="forum.html" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div class="meta">03 · Academic Discussion Forum</div>
+          <h3>Join peer physics discussions</h3>
+          <p>Read and post academic questions, share derivations, reply to research threads, and upvote insightful answers across Astrophysics, Quantum Optics, Condensed Matter, and Computational Physics.</p>
+        </div>
+        <div style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
+          <span class="badge" style="border-color:var(--green); color:var(--green);">Live Q&amp;A Rooms</span>
+          <span style="font-family:var(--font-mono); font-size:12px; color:var(--green);">Enter Forum →</span>
+        </div>
       </a>
     </div>
 
-    <!-- Rules and info -->
-    <section class="panel" style="margin-top:20px;">
-      <p class="kicker">Access rule</p>
-      <h2>Read, explore, learn.</h2>
-      <p class="notice">Student login is open to anyone. Student sessions cannot edit events, colloquia, statistics, authorization records, personal information, or security settings.</p>
+    <!-- Interactive Two-Column Workspace: Daily Challenge + Scratchpad & Bookmarks -->
+    <div class="two-col" style="margin-top:28px; align-items:stretch;">
+      <!-- Left: Physics Problem of the Day + Upcoming Society Feed -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <section class="panel" aria-labelledby="dailyChallengeHeading">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div>
+              <p class="kicker">Daily Conceptual Challenge</p>
+              <h2 id="dailyChallengeHeading" style="margin:4px 0 0;">Physics Problem of the Day</h2>
+            </div>
+            <button class="mini-btn" id="nextChallengeBtn" type="button">Next Problem ↻</button>
+          </div>
+          <div id="dailyChallengeBox" style="margin-top:14px;">
+            <p id="challengeTopic" style="font-family:var(--font-mono); font-size:11px; color:var(--cyan); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:6px;">QUANTUM MECHANICS</p>
+            <p id="challengeQuestion" style="font-size:14.5px; color:var(--text-heading); font-weight:500; line-height:1.6; margin:0 0 14px;"></p>
+            <div id="challengeOptions" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <div id="challengeFeedback" class="feedback-banner" role="status" aria-live="polite" style="margin-top:12px;"></div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="studentUpcomingHeading">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <p class="kicker">Society Calendar</p>
+              <h2 id="studentUpcomingHeading" style="margin:4px 0 0;">Upcoming Events &amp; Colloquia</h2>
+            </div>
+            <a class="text-link" href="events.html" style="font-size:12px;">View all →</a>
+          </div>
+          <div id="studentUpcomingList" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;"></div>
+        </section>
+      </div>
+
+      <!-- Right: Personal Lab Scratchpad & Saved Bookmarks -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <section class="panel" aria-labelledby="scratchpadHeading" style="flex:1; display:flex; flex-direction:column;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <p class="kicker">Personal Study Notebook</p>
+              <h2 id="scratchpadHeading" style="margin:4px 0 0;">Lab &amp; Derivation Scratchpad</h2>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="mini-btn" id="exportNotesBtn" type="button" title="Download notes as .txt">⬇ Export .txt</button>
+              <button class="mini-btn danger-btn" id="clearNotesBtn" type="button" title="Clear scratchpad">Clear</button>
+            </div>
+          </div>
+          <p style="font-size:12.5px; color:var(--muted); margin:6px 0 12px;">Automatically saves to your browser session as you type. Jot down simulation parameters, derivations, or seminar questions.</p>
+          <textarea id="studentScratchpad" rows="7" placeholder="Write your physics notes, simulation observations, or LaTeX equations here..." style="width:100%; flex:1; font-family:var(--font-mono); font-size:12.5px; line-height:1.6; padding:12px; border-radius:6px; resize:vertical;"></textarea>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-family:var(--font-mono); font-size:11px; color:var(--muted);">
+            <span id="scratchpadStatus">Auto-saved locally</span>
+            <span id="scratchpadCharCount">0 chars</span>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="savedFormulasHeading">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <p class="kicker">Quick Reference</p>
+              <h2 id="savedFormulasHeading" style="margin:4px 0 0;">Bookmarked Formulas</h2>
+            </div>
+            <a class="text-link" href="formulas.html" style="font-size:12px;">Browse all →</a>
+          </div>
+          <div id="studentBookmarkedFormulas" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Access Governance Notice -->
+    <section class="panel" style="margin-top:24px;">
+      <p class="kicker">Access Governance &amp; Security</p>
+      <h2>Explore, simulate, and collaborate safely.</h2>
+      <p class="notice" style="margin-top:8px;">Student accounts have full interactive access to virtual lab simulations, formula solvers, and academic forum discussions. Public event schedules, colloquium archives, user role authorizations, and security policies remain strictly managed by authorized Society Members and Administrators.</p>
     </section>
   </main>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ========== SITE FOOTER ========== -->
   <footer>
     <div>
       <strong>Presidency University Physics Society</strong>
-      <span>Student portal reference</span>
+      <span>Student Academic Portal</span>
     </div>
     <div>© 2026 Presidency University</div>
   </footer>
 
-  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

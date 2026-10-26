@@ -124,6 +124,34 @@ function escapeAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
+function sanitizeUrl(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  if (!str) return '';
+  if (str === '#') return '#';
+  // Allow safe relative paths
+  if (/^[a-zA-Z0-9_\-./]+(\.html)?([?#].*)?$/.test(str) && !str.includes(':')) {
+    return escapeAttr(str);
+  }
+  try {
+    const parsed = new URL(str, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mailto:') {
+      return escapeAttr(str);
+    }
+  } catch {
+    return '#';
+  }
+  return '#';
+}
+
+function formatSafeHeading(str, fallback = '') {
+  const raw = str || fallback;
+  // Escape all HTML first, then selectively restore <em>...</em> for typographic italic accents
+  return escapeHTML(raw)
+    .replace(/&lt;em&gt;/gi, '<em>')
+    .replace(/&lt;\/em&gt;/gi, '</em>');
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
@@ -162,13 +190,16 @@ if (!localStorage.getItem(DB_KEY)) {
 function loadSecurityPolicy() {
   try {
     const raw = localStorage.getItem(SECURITY_POLICY_KEY);
-    return raw ? { ...defaultSecurityPolicy, ...JSON.parse(raw) } : { ...defaultSecurityPolicy };
+    const pol = raw ? { ...defaultSecurityPolicy, ...JSON.parse(raw) } : { ...defaultSecurityPolicy };
+    if (pol.sessionHours > 24) pol.sessionHours = 24;
+    return pol;
   } catch {
     return { ...defaultSecurityPolicy };
   }
 }
 
 function saveSecurityPolicy(policy) {
+  if (policy && policy.sessionHours > 24) policy.sessionHours = 24;
   localStorage.setItem(SECURITY_POLICY_KEY, JSON.stringify(policy));
 }
 
@@ -199,6 +230,40 @@ function showToast(message, type = 'info', duration = 4000) {
     toast.style.transform = 'translateY(10px)';
     setTimeout(() => toast.remove(), 250);
   }, duration);
+}
+
+// ── Custom Non-Blocking Confirmation Modal (Replaces native window.confirm) ──
+function showConfirmModal(message, onConfirm, confirmLabel = 'Confirm') {
+  let existing = qs('#pupsConfirmOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pupsConfirmOverlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.72); backdrop-filter:blur(6px); z-index:20000; display:flex; align-items:center; justify-content:center; padding:20px;';
+
+  overlay.innerHTML = `
+    <div class="panel" style="max-width:420px; width:100%; padding:24px; border:1px solid var(--cyan); box-shadow:0 24px 60px rgba(0,0,0,0.65);">
+      <p class="kicker" style="color:var(--cyan); margin:0 0 6px;">SECURITY CONFIRMATION</p>
+      <p style="font-size:14px; color:var(--text-heading); line-height:1.6; margin:0 0 20px;">${escapeHTML(message)}</p>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn ghost" id="pupsConfirmCancelBtn" style="padding:8px 16px; font-size:12.5px;">Cancel</button>
+        <button type="button" class="btn primary" id="pupsConfirmOkBtn" style="padding:8px 16px; font-size:12.5px;">${escapeHTML(confirmLabel)}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  const cancelBtn = overlay.querySelector('#pupsConfirmCancelBtn');
+  const okBtn = overlay.querySelector('#pupsConfirmOkBtn');
+  if (cancelBtn) cancelBtn.onclick = () => overlay.remove();
+  if (okBtn) {
+    okBtn.onclick = () => {
+      overlay.remove();
+      if (typeof onConfirm === 'function') onConfirm();
+    };
+  }
 }
 
 // ── Registered Users Data Center & Account Storage ───────────
@@ -378,14 +443,15 @@ function getInitials(name) {
 
 // ── Build a large photo card ───────────────────────────────
 function buildTeamCard(member) {
-  const initials = getInitials(member.name);
+  const initials = escapeHTML(getInitials(member.name));
   const links = buildSocialLinks(member, 'team-link');
+  const safePhoto = sanitizeUrl(member.photo);
 
   return `
-    <article class="team-card" aria-label="${escapeHTML(member.name)}, ${escapeHTML(member.role)}">
+    <article class="team-card" aria-label="${escapeAttr(member.name)}, ${escapeAttr(member.role)}">
       <div class="team-avatar-wrap">
-        ${member.photo
-          ? `<img class="team-avatar-img" src="${escapeHTML(member.photo)}" alt="${escapeHTML(member.name)}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        ${safePhoto && safePhoto !== '#'
+          ? `<img class="team-avatar-img" src="${safePhoto}" alt="${escapeAttr(member.name)}" loading="lazy">
              <div class="team-avatar-placeholder" style="display:none"><span class="team-avatar-initials">${initials}</span></div>`
           : `<div class="team-avatar-placeholder"><span class="team-avatar-initials">${initials}</span></div>`
         }
@@ -400,14 +466,15 @@ function buildTeamCard(member) {
 
 // ── Build a compact row ────────────────────────────────────
 function buildTeamRow(member) {
-  const initials = getInitials(member.name);
+  const initials = escapeHTML(getInitials(member.name));
   const iconLinks = buildSocialLinks(member, 'team-icon-link icon');
+  const safePhoto = sanitizeUrl(member.photo);
 
   return `
     <div class="team-row">
       <div class="team-avatar-sm">
-        ${member.photo
-          ? `<img class="team-avatar-img-sm" src="${escapeHTML(member.photo)}" alt="${escapeHTML(member.name)}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        ${safePhoto && safePhoto !== '#'
+          ? `<img class="team-avatar-img-sm" src="${safePhoto}" alt="${escapeAttr(member.name)}" loading="lazy">
              <span class="team-avatar-initials-sm" style="display:none">${initials}</span>`
           : `<span class="team-avatar-initials-sm">${initials}</span>`
         }
@@ -426,19 +493,23 @@ function buildSocialLinks(member, linkClass) {
   const { social = {}, email } = member;
 
   if (email) {
-    parts.push(`<a href="mailto:${escapeHTML(email)}" class="${linkClass}" aria-label="Email ${escapeHTML(member.name)}" title="Email">${SOCIAL_ICONS.email}${linkClass.includes('icon') ? '' : '<span>Email</span>'}</a>`);
+    parts.push(`<a href="mailto:${escapeAttr(email)}" class="${linkClass}" aria-label="Email ${escapeAttr(member.name)}" title="Email">${SOCIAL_ICONS.email}${linkClass.includes('icon') ? '' : '<span>Email</span>'}</a>`);
   }
   if (social.linkedin) {
-    parts.push(`<a href="${escapeHTML(social.linkedin)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on LinkedIn" title="LinkedIn">${SOCIAL_ICONS.linkedin}${linkClass.includes('icon') ? '' : '<span>LinkedIn</span>'}</a>`);
+    const u = sanitizeUrl(social.linkedin);
+    if (u && u !== '#') parts.push(`<a href="${u}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeAttr(member.name)} on LinkedIn" title="LinkedIn">${SOCIAL_ICONS.linkedin}${linkClass.includes('icon') ? '' : '<span>LinkedIn</span>'}</a>`);
   }
   if (social.instagram) {
-    parts.push(`<a href="${escapeHTML(social.instagram)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on Instagram" title="Instagram">${SOCIAL_ICONS.instagram}${linkClass.includes('icon') ? '' : '<span>Instagram</span>'}</a>`);
+    const u = sanitizeUrl(social.instagram);
+    if (u && u !== '#') parts.push(`<a href="${u}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeAttr(member.name)} on Instagram" title="Instagram">${SOCIAL_ICONS.instagram}${linkClass.includes('icon') ? '' : '<span>Instagram</span>'}</a>`);
   }
   if (social.github) {
-    parts.push(`<a href="${escapeHTML(social.github)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on GitHub" title="GitHub">${SOCIAL_ICONS.github}${linkClass.includes('icon') ? '' : '<span>GitHub</span>'}</a>`);
+    const u = sanitizeUrl(social.github);
+    if (u && u !== '#') parts.push(`<a href="${u}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeAttr(member.name)} on GitHub" title="GitHub">${SOCIAL_ICONS.github}${linkClass.includes('icon') ? '' : '<span>GitHub</span>'}</a>`);
   }
   if (social.facebook) {
-    parts.push(`<a href="${escapeHTML(social.facebook)}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeHTML(member.name)} on Facebook" title="Facebook">${SOCIAL_ICONS.facebook}${linkClass.includes('icon') ? '' : '<span>Facebook</span>'}</a>`);
+    const u = sanitizeUrl(social.facebook);
+    if (u && u !== '#') parts.push(`<a href="${u}" target="_blank" rel="noopener noreferrer" class="${linkClass}" aria-label="${escapeAttr(member.name)} on Facebook" title="Facebook">${SOCIAL_ICONS.facebook}${linkClass.includes('icon') ? '' : '<span>Facebook</span>'}</a>`);
   }
 
   return parts.join('');
@@ -714,7 +785,7 @@ function wireTeamEditorEvents() {
 
   // Discard
   document.getElementById('teamEditorDiscard').addEventListener('click', () => {
-    if (confirm('Discard all unsaved changes?')) {
+    showConfirmModal('Discard all unsaved team changes?', () => {
       try {
         _teamEditorData = JSON.parse(localStorage.getItem(TEAM_DATA_KEY) || 'null') || structuredClone(DEFAULT_TEAM_DATA);
       } catch {
@@ -723,7 +794,7 @@ function wireTeamEditorEvents() {
       renderMemberList();
       switchToTab('members');
       showToast('Changes discarded.', 'info');
-    }
+    }, 'Discard');
   });
 
   // Add section
@@ -769,9 +840,9 @@ function renderMemberList() {
       <div class="team-editor-item" data-mid="${escapeHTML(m.id)}" data-sid="${escapeHTML(m._sectionId)}" tabindex="0" role="button" aria-label="Edit ${escapeHTML(m.name)}">
         <span class="team-editor-item-drag" aria-hidden="true">⠿</span>
         <div class="team-editor-item-avatar">
-          ${m.photo
-            ? `<img src="${escapeHTML(m.photo)}" alt="${escapeHTML(m.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.outerHTML='${initials}'">`
-            : initials
+          ${sanitizeUrl(m.photo) && sanitizeUrl(m.photo) !== '#'
+            ? `<img src="${sanitizeUrl(m.photo)}" alt="${escapeAttr(m.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+            : escapeHTML(initials)
           }
         </div>
         <div class="team-editor-item-info">
@@ -823,7 +894,7 @@ function renderSectionList() {
         <option value="rows" ${s.layout === 'rows' ? 'selected' : ''}>Rows</option>
       </select>
       <span style="font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace;">${(s.members || []).length} members</span>
-      ${idx > 0 ? `<button style="background:none; border:none; color:var(--red,#f87171); cursor:pointer; font-size:14px;" data-del-section="${idx}" aria-label="Remove section ${s.title}" title="Remove section">✕</button>` : ''}
+      ${idx > 0 ? `<button style="background:none; border:none; color:var(--red,#f87171); cursor:pointer; font-size:14px;" data-del-section="${idx}" aria-label="Remove section ${escapeAttr(s.title)}" title="Remove section">✕</button>` : ''}
     </div>`).join('');
 
   // Wire changes
@@ -842,11 +913,15 @@ function renderSectionList() {
       const idx = parseInt(btn.dataset.delSection);
       const sectionName = _teamEditorData.sections[idx].title;
       const memberCount = (_teamEditorData.sections[idx].members || []).length;
+      const doRemoveSec = () => {
+        _teamEditorData.sections.splice(idx, 1);
+        renderSectionList();
+      };
       if (memberCount > 0) {
-        if (!confirm(`Section "${sectionName}" has ${memberCount} member(s). Deleting it will also remove those members. Continue?`)) return;
+        showConfirmModal(`Section "${sectionName}" has ${memberCount} member(s). Deleting it will also remove those members. Continue?`, doRemoveSec, 'Delete Section');
+        return;
       }
-      _teamEditorData.sections.splice(idx, 1);
-      renderSectionList();
+      doRemoveSec();
     });
   });
 }
@@ -963,11 +1038,12 @@ function deleteMember(mid, sid) {
   const section = _teamEditorData.sections.find(s => s.id === sid);
   if (!section) return;
   const member = (section.members || []).find(m => m.id === mid);
-  if (!confirm(`Remove "${member?.name || 'this member'}" from the team?`)) return;
-  section.members = section.members.filter(m => m.id !== mid);
-  renderMemberList();
-  renderTeamPage(_teamEditorData);
-  showToast('Member removed.', 'info');
+  showConfirmModal(`Remove "${member?.name || 'this member'}" from the team?`, () => {
+    section.members = section.members.filter(m => m.id !== mid);
+    renderMemberList();
+    renderTeamPage(_teamEditorData);
+    showToast('Member removed.', 'info');
+  }, 'Remove');
 }
 
 function publishTeamData() {
@@ -1036,7 +1112,7 @@ const LOTTIE_LOADER_URL = 'https://lottie.host/ccb8b8d2-44ac-4bd3-9e20-032671909
 // Ensure Lottie Player script is available globally
 if (typeof window !== 'undefined' && !window.customElements?.get('lottie-player')) {
   const lottieScript = document.createElement('script');
-  lottieScript.src = 'https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js';
+  lottieScript.src = 'https://unpkg.com/@lottiefiles/lottie-player@2.0.4/dist/lottie-player.js';
   lottieScript.async = true;
   document.head.appendChild(lottieScript);
 }
@@ -1183,37 +1259,37 @@ function renderContactPage(data) {
   const info = data.info || DEFAULT_CONTACT_DATA.info;
   const social = data.social || DEFAULT_CONTACT_DATA.social;
 
-  // Update Hero texts if elements exist
+  // Update Hero texts safely (prevent Stored XSS while preserving <em> accent)
   const kickerEl = document.getElementById('contactHeroKicker');
   if (kickerEl) kickerEl.textContent = hero.kicker || 'Contact · Est. 2025';
   const titleEl = document.getElementById('contactHeroTitle');
-  if (titleEl) titleEl.innerHTML = hero.title || 'Get in <em>touch</em>.';
+  if (titleEl) titleEl.innerHTML = formatSafeHeading(hero.title, 'Get in <em>touch</em>.');
   const ledeEl = document.getElementById('contactHeroLede');
   if (ledeEl) ledeEl.textContent = hero.lede || '';
 
-  // Build social buttons
+  // Build social buttons with URL protocol sanitization
   const socialButtons = [];
-  if (social.facebook) {
-    socialButtons.push(`<a href="${escapeHTML(social.facebook)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on Facebook" title="Facebook">${SOCIAL_ICONS.facebook}</a>`);
+  if (social.facebook && sanitizeUrl(social.facebook) !== '#') {
+    socialButtons.push(`<a href="${sanitizeUrl(social.facebook)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on Facebook" title="Facebook">${SOCIAL_ICONS.facebook}</a>`);
   }
-  if (social.instagram) {
-    socialButtons.push(`<a href="${escapeHTML(social.instagram)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on Instagram" title="Instagram">${SOCIAL_ICONS.instagram}</a>`);
+  if (social.instagram && sanitizeUrl(social.instagram) !== '#') {
+    socialButtons.push(`<a href="${sanitizeUrl(social.instagram)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on Instagram" title="Instagram">${SOCIAL_ICONS.instagram}</a>`);
   }
-  if (social.linkedin) {
-    socialButtons.push(`<a href="${escapeHTML(social.linkedin)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on LinkedIn" title="LinkedIn">${SOCIAL_ICONS.linkedin}</a>`);
+  if (social.linkedin && sanitizeUrl(social.linkedin) !== '#') {
+    socialButtons.push(`<a href="${sanitizeUrl(social.linkedin)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on LinkedIn" title="LinkedIn">${SOCIAL_ICONS.linkedin}</a>`);
   }
-  if (social.youtube) {
-    socialButtons.push(`<a href="${escapeHTML(social.youtube)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on YouTube" title="YouTube"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg></a>`);
+  if (social.youtube && sanitizeUrl(social.youtube) !== '#') {
+    socialButtons.push(`<a href="${sanitizeUrl(social.youtube)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on YouTube" title="YouTube"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg></a>`);
   }
-  if (social.github) {
-    socialButtons.push(`<a href="${escapeHTML(social.github)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on GitHub" title="GitHub">${SOCIAL_ICONS.github}</a>`);
+  if (social.github && sanitizeUrl(social.github) !== '#') {
+    socialButtons.push(`<a href="${sanitizeUrl(social.github)}" target="_blank" rel="noopener noreferrer" class="contact-social-btn" aria-label="PUPS on GitHub" title="GitHub">${SOCIAL_ICONS.github}</a>`);
   }
 
   container.innerHTML = `
     <div class="contact-grid">
       <!-- Left Column: Narrative & Enquiry Form -->
       <div class="contact-left-card">
-        <h2>${narrative.title || "We'd love to <em>hear from you</em>."}</h2>
+        <h2>${formatSafeHeading(narrative.title, "We'd love to <em>hear from you</em>.")}</h2>
         <p>${escapeHTML(narrative.p1 || '')}</p>
         <p>${escapeHTML(narrative.p2 || '')}</p>
 
@@ -1269,7 +1345,7 @@ function renderContactPage(data) {
           </div>
           <div class="ci">
             <span class="ci-k">Department</span>
-            <span><a href="${escapeHTML(info.departmentUrl || '#')}" target="_blank" rel="noopener noreferrer">${escapeHTML(info.departmentName || 'presiuniv.ac.in →')}</a></span>
+            <span><a href="${sanitizeUrl(info.departmentUrl || '#')}" target="_blank" rel="noopener noreferrer">${escapeHTML(info.departmentName || 'presiuniv.ac.in →')}</a></span>
           </div>
           <div class="ci" style="align-items:center;">
             <span class="ci-k">Social</span>
@@ -1523,7 +1599,7 @@ function wireContactEditorEvents() {
   });
 
   document.getElementById('contactEditorDiscard').addEventListener('click', () => {
-    if (confirm('Discard changes and reload saved contact data?')) {
+    showConfirmModal('Discard changes and reload saved contact data?', () => {
       try {
         _contactEditorData = JSON.parse(localStorage.getItem(CONTACT_DATA_KEY) || 'null') || structuredClone(DEFAULT_CONTACT_DATA);
       } catch {
@@ -1532,7 +1608,7 @@ function wireContactEditorEvents() {
       populateContactForm(_contactEditorData);
       showToast('Changes discarded.', 'info');
       closeContactEditor();
-    }
+    }, 'Discard');
   });
 }
 
@@ -1666,12 +1742,15 @@ function closeContactEditor() {
 function initNav() {
   // Initialize Global Typography theme
   initGlobalTypography();
-  // Team page: load structured data then render
-  loadTeamPage();
-  initAdminTeamEditor();
-  // Contact page: load structured data then render
-  loadContactPage();
-  initAdminContactEditor();
+  const page = currentPage();
+  if (page === 'team.html') {
+    loadTeamPage();
+    initAdminTeamEditor();
+  }
+  if (page === 'contact.html') {
+    loadContactPage();
+    initAdminContactEditor();
+  }
   const btn = qs('#menuToggle');
   const nav = qs('#mainNav');
   if (btn && nav) {
@@ -1684,13 +1763,14 @@ function initNav() {
   // Dynamic Navigation state based on session
   const session = getStoredSession();
   const loginLink = qs('.login-link');
-  const page = currentPage();
 
   if (session && session.id) {
     // USER IS LOGGED IN ACROSS NAVIGATION
     if (loginLink) {
       loginLink.textContent = 'Logout';
-      loginLink.href = 'javascript:logout();';
+      loginLink.href = '#logout';
+      loginLink.dataset.action = 'logout';
+      loginLink.onclick = (e) => { e.preventDefault(); logout(); };
       loginLink.setAttribute('aria-label', `Log out of active session (${session.role})`);
       loginLink.title = `Signed in as ${session.name || session.id} (${capitalize(session.role)}). Click to log out.`;
     }
@@ -1751,7 +1831,73 @@ async function getPublicIP() {
   }
 }
 
-// ── Cryptographic Hashing ───────────────────────────────────
+// ── Cryptographic Hashing (WebCrypto SHA-256 + Pure-JS FIPS 180-4 SHA-256 Fallback) ──
+function sha256PureJS(ascii) {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  let result = '';
+  const words = [];
+  const asciiBitLength = ascii.length * 8;
+  let hash = [];
+  const k = [];
+  let primeCounter = 0;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while ((ascii.length % 64) - 56) ascii += '\x00';
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    if (j >> 8) return '';
+    words[i >> 2] |= j << ((3 - (i % 4)) * 8);
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  for (let j = 0; j < words.length; ) {
+    const w = words.slice(j, (j += 16));
+    const oldHash = hash.slice(0);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2];
+      const a = hash[0], e = hash[4];
+      const temp1 =
+        hash[7] +
+        (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) +
+        ((e & hash[5]) ^ (~e & hash[6])) +
+        k[i] +
+        (w[i] =
+          i < 16
+            ? w[i]
+            : (w[i - 16] +
+                (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) +
+                w[i - 7] +
+                (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) |
+              0);
+      const temp2 =
+        (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) +
+        ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+      hash.pop();
+    }
+    for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? 0 : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
 async function hashPassword(password) {
   if (window.crypto && window.crypto.subtle) {
     try {
@@ -1760,16 +1906,11 @@ async function hashPassword(password) {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     } catch {
-      // Fallback below
+      // Fall through to pure-JS FIPS 180-4 SHA-256
     }
   }
-  // Basic deterministic fallback hash if SubtleCrypto is unavailable
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    hash = (hash << 5) - hash + password.charCodeAt(i);
-    hash |= 0;
-  }
-  return 'fallback_' + Math.abs(hash).toString(16);
+  const utf8Str = unescape(encodeURIComponent(password));
+  return sha256PureJS(utf8Str);
 }
 
 // ── Session Management & Policy Enforcement ─────────────────
@@ -2068,7 +2209,7 @@ function initLogin() {
       wrap.style.gap = '8px';
       wrap.innerHTML = `
         <a class="btn primary" href="${portalHref}" style="font-size:12px; padding:8px 14px;">${portalLabel} →</a>
-        <a class="btn ghost" href="javascript:logout();" style="font-size:12px; padding:8px 14px;">Logout</a>
+        <a class="btn ghost" href="#logout" data-action="logout" style="font-size:12px; padding:8px 14px;">Logout</a>
       `;
       tools.insertBefore(wrap, tools.firstChild);
     }
@@ -2201,7 +2342,8 @@ function initLogin() {
           body:     JSON.stringify({
             action:        'login',
             email:         email,
-            passwordHash:  passwordHash
+            passwordHash:  passwordHash,
+            requestedRole: requestedRole
           }),
           signal:   AbortSignal.timeout(10000)
         });
@@ -2530,25 +2672,41 @@ function initAdmin() {
   if (sec2fa) sec2fa.checked = !!policy.twoFactor;
   if (secAlerts) secAlerts.checked = policy.loginAlerts !== false;
   if (secRateLimit) secRateLimit.checked = policy.rateLimit !== false;
-  if (sessionHours) sessionHours.value = policy.sessionHours || 24;
+  if (sessionHours) {
+    sessionHours.value = Math.min(24, policy.sessionHours || 24);
+    sessionHours.max = "24";
+    sessionHours.addEventListener('input', () => {
+      const val = parseInt(sessionHours.value, 10);
+      if (val > 24) {
+        sessionHours.value = 24;
+        showToast('Maximum session expiration cannot exceed 24 hours.', 'warning', 2500);
+      }
+    });
+  }
 
   // Security Form Submit
   const secForm = qs('#securityForm');
   if (secForm) {
     secForm.onsubmit = (e) => {
       e.preventDefault();
+      const rawHours = parseInt(sessionHours?.value || 24, 10);
+      if (rawHours > 24) {
+        showToast('Maximum session expiration cannot exceed 24 hours.', 'error');
+        if (sessionHours) sessionHours.value = 24;
+        return;
+      }
       const updatedPolicy = {
         twoFactor:    !!sec2fa?.checked,
         loginAlerts:  !!secAlerts?.checked,
         rateLimit:    !!secRateLimit?.checked,
-        sessionHours: Math.max(1, Math.min(72, parseInt(sessionHours?.value || 24, 10)))
+        sessionHours: Math.max(1, Math.min(24, rawHours || 24))
       };
       saveSecurityPolicy(updatedPolicy);
 
       const banner = qs('#securitySavedBanner');
       if (banner) {
         banner.className = 'feedback-banner success show';
-        banner.innerHTML = `✓ Security policy successfully updated and enforced globally.`;
+        banner.innerHTML = `✓ Security policy successfully updated (Session expiration capped at ${updatedPolicy.sessionHours}h) and enforced globally.`;
         setTimeout(() => { banner.classList.remove('show'); }, 5000);
       }
       showToast('Security governance policy saved and active.', 'success');
@@ -3004,10 +3162,12 @@ async function changeGrantedRole(email, newRole) {
 
 // ── Revoke User Override with Server Sync ───────────────────
 async function revokeOverride(email) {
-  if (!confirm(`Are you sure you want to revoke authorization for ${email}? This will revert their access to Student.`)) {
-    return;
-  }
+  showConfirmModal(`Are you sure you want to revoke authorization for ${email}? This will revert their access to Student.`, async () => {
+    await executeRevokeOverride(email);
+  }, 'Revoke Access');
+}
 
+async function executeRevokeOverride(email) {
   const overrides = loadRoleOverrides();
   const entry = overrides.find(o => o.email.toLowerCase() === email.toLowerCase());
   const name = entry ? entry.name : email;
@@ -3195,8 +3355,522 @@ function renderLoginStatusTable() {
 }
 
 // ============================================================
-//  STUDENT & ACADEMIC PORTALS INITIALIZERS
+//  STUDENT PORTAL, INTERACTIVE LAB, FORMULAS & FORUM ENGINE
 // ============================================================
+
+const BOOKMARKS_KEY = 'pupsFormulaBookmarks';
+const SCRATCHPAD_KEY = 'pupsStudentScratchpad';
+const FORUM_THREADS_KEY = 'pupsForumThreads';
+const LAB_RUNS_KEY = 'pupsLabRunsCount';
+
+// ── 18 Comprehensive Physics Formulas Database ──────────────
+const PHYSICS_FORMULAS_DB = [
+  {
+    id: 'f_newton2',
+    category: 'Mechanics',
+    title: "Newton's Second Law",
+    equation: 'F = m · a',
+    latex: '\\mathbf{F} = m \\frac{d^2\\mathbf{r}}{dt^2}',
+    description: 'Relates net external force acting on a body to its inertial mass and instantaneous acceleration.',
+    variables: 'F: Net Force (N), m: Mass (kg), a: Acceleration (m/s²)',
+    calcLabel: 'Net Force F (N)',
+    inputs: [
+      { key: 'm', label: 'Mass m (kg)', defaultVal: 5.0 },
+      { key: 'a', label: 'Acceleration a (m/s²)', defaultVal: 9.81 }
+    ],
+    compute: (v) => ({ val: v.m * v.a, unit: 'N' })
+  },
+  {
+    id: 'f_gravitation',
+    category: 'Mechanics',
+    title: 'Universal Law of Gravitation',
+    equation: 'F = G m₁ m₂ / r²',
+    latex: 'F = G \\frac{m_1 m_2}{r^2}',
+    description: 'Gravitational attraction between two point masses separated by distance r.',
+    variables: 'G = 6.674×10⁻¹¹ N·m²/kg², m₁,m₂: Masses (kg), r: Separation (m)',
+    calcLabel: 'Gravitational Force F (N)',
+    inputs: [
+      { key: 'm1', label: 'Mass m₁ (kg)', defaultVal: 5.972e24 },
+      { key: 'm2', label: 'Mass m₂ (kg)', defaultVal: 1000 },
+      { key: 'r', label: 'Distance r (m)', defaultVal: 6.371e6 }
+    ],
+    compute: (v) => ({ val: (6.67430e-11 * v.m1 * v.m2) / Math.max(1e-12, v.r * v.r), unit: 'N' })
+  },
+  {
+    id: 'f_lagrangian',
+    category: 'Mechanics',
+    title: 'Euler–Lagrange & Action Functional',
+    equation: 'L = T − V  |  d/dt(∂L/∂q̇) − ∂L/∂q = 0',
+    latex: '\\mathcal{L} = T - V, \\quad \\frac{d}{dt}\\left(\\frac{\\partial \\mathcal{L}}{\\partial \\dot{q}_i}\\right) - \\frac{\\partial \\mathcal{L}}{\\partial q_i} = 0',
+    description: 'Stationary action principle governing classical trajectories in generalized coordinates.',
+    variables: 'L: Lagrangian (J), T: Kinetic Energy (J), V: Potential Energy (J)',
+    calcLabel: 'Lagrangian L = T − V (J)',
+    inputs: [
+      { key: 'T', label: 'Kinetic Energy T (J)', defaultVal: 120.5 },
+      { key: 'V', label: 'Potential Energy V (J)', defaultVal: 45.0 }
+    ],
+    compute: (v) => ({ val: v.T - v.V, unit: 'J' })
+  },
+  {
+    id: 'f_shm',
+    category: 'Mechanics',
+    title: 'Simple Pendulum & Harmonic Oscillator',
+    equation: 'T = 2π √(L / g)',
+    latex: 'T = 2\\pi \\sqrt{\\frac{L}{g}}, \\quad \\omega_0 = \\sqrt{\\frac{g}{L}}',
+    description: 'Small-angle oscillation period of a simple gravitational pendulum of length L.',
+    variables: 'T: Period (s), L: Pendulum Length (m), g: Gravity (m/s²)',
+    calcLabel: 'Oscillation Period T (s)',
+    inputs: [
+      { key: 'L', label: 'Length L (m)', defaultVal: 1.0 },
+      { key: 'g', label: 'Gravity g (m/s²)', defaultVal: 9.80665 }
+    ],
+    compute: (v) => ({ val: 2 * Math.PI * Math.sqrt(Math.max(0, v.L) / Math.max(1e-9, v.g)), unit: 's' })
+  },
+  {
+    id: 'f_schrodinger',
+    category: 'Quantum',
+    title: 'Time-Dependent Schrödinger Equation',
+    equation: 'iℏ ∂ψ/∂t = Ĥψ = [−(ℏ²/2m)∇² + V(r)]ψ',
+    latex: 'i\\hbar \\frac{\\partial \\psi}{\\partial t} = \\left( -\\frac{\\hbar^2}{2m}\\nabla^2 + V(\\mathbf{r}) \\right)\\psi',
+    description: 'Fundamental unitary time-evolution equation of non-relativistic quantum state wavefunctions.',
+    variables: 'ℏ: Reduced Planck constant, ψ: Wavefunction, E_n: Box Eigenenergy (eV)',
+    calcLabel: '1D Infinite Well Energy Eₙ (eV)',
+    inputs: [
+      { key: 'n', label: 'Quantum Number n', defaultVal: 1 },
+      { key: 'L_nm', label: 'Well Width L (nm)', defaultVal: 1.0 }
+    ],
+    compute: (v) => {
+      const h = 6.62607015e-34, me = 9.1093837e-31, eV = 1.602176634e-19;
+      const L = Math.max(1e-12, v.L_nm * 1e-9);
+      const E_J = (v.n * v.n * h * h) / (8 * me * L * L);
+      return { val: E_J / eV, unit: 'eV' };
+    }
+  },
+  {
+    id: 'f_debroglie',
+    category: 'Quantum',
+    title: 'de Broglie Matter-Wave Relation',
+    equation: 'λ = h / p = h / (m · v)',
+    latex: '\\lambda = \\frac{h}{p} = \\frac{h}{mv}',
+    description: 'Connects wave-particle duality wavelength λ to relativistic or classical particle momentum p.',
+    variables: 'h = 6.626×10⁻³⁴ J·s, m: Mass (kg), v: Velocity (m/s)',
+    calcLabel: 'de Broglie Wavelength λ (m)',
+    inputs: [
+      { key: 'm', label: 'Particle Mass m (kg)', defaultVal: 9.1093837e-31 },
+      { key: 'v', label: 'Velocity v (m/s)', defaultVal: 1.0e6 }
+    ],
+    compute: (v) => ({ val: 6.62607015e-34 / Math.max(1e-45, v.m * v.v), unit: 'm' })
+  },
+  {
+    id: 'f_heisenberg',
+    category: 'Quantum',
+    title: 'Heisenberg Uncertainty Principle',
+    equation: 'Δx · Δp ≥ ℏ / 2',
+    latex: '\\sigma_x \\sigma_p \\geq \\frac{\\hbar}{2}',
+    description: 'Fundamental quantum limit on simultaneous precision of conjugate position and momentum observables.',
+    variables: 'Δx: Position spread (m), Δp_min: Minimum Momentum uncertainty (kg·m/s)',
+    calcLabel: 'Min Momentum Spread Δp (kg·m/s)',
+    inputs: [
+      { key: 'dx', label: 'Position Uncertainty Δx (m)', defaultVal: 1.0e-10 }
+    ],
+    compute: (v) => ({ val: 1.054571817e-34 / (2 * Math.max(1e-30, v.dx)), unit: 'kg·m/s' })
+  },
+  {
+    id: 'f_tunneling',
+    category: 'Quantum',
+    title: 'Quantum Barrier Tunneling (WKB)',
+    equation: 'T ≈ exp(−2 a √(2m(V₀ − E)) / ℏ)',
+    latex: 'T \\approx \\exp\\left( -\\frac{2a}{\\hbar}\\sqrt{2m(V_0 - E)} \\right)',
+    description: 'Transmission probability of a quantum particle tunneling across a rectangular potential barrier V₀ > E.',
+    variables: 'V₀: Barrier Height (eV), E: Particle Energy (eV), a: Width (nm)',
+    calcLabel: 'Transmission Probability T',
+    inputs: [
+      { key: 'V0', label: 'Barrier Height V₀ (eV)', defaultVal: 5.0 },
+      { key: 'E', label: 'Particle Energy E (eV)', defaultVal: 4.0 },
+      { key: 'a_nm', label: 'Barrier Width a (nm)', defaultVal: 0.2 }
+    ],
+    compute: (v) => {
+      if (v.E >= v.V0) return { val: 1.0, unit: '(Classical Transmission)' };
+      const me = 9.1093837e-31, eV = 1.602176634e-19, hbar = 1.054571817e-34;
+      const kappa = Math.sqrt(2 * me * (v.V0 - v.E) * eV) / hbar;
+      const T = Math.exp(-2 * kappa * (v.a_nm * 1e-9));
+      return { val: T, unit: 'probability' };
+    }
+  },
+  {
+    id: 'f_maxwell',
+    category: 'Electrodynamics',
+    title: "Maxwell–Ampère & Faraday Laws",
+    equation: '∇ × B = μ₀J + μ₀ε₀ ∂E/∂t  |  c = 1/√(μ₀ε₀)',
+    latex: '\\nabla \\times \\mathbf{B} = \\mu_0 \\mathbf{J} + \\mu_0 \\varepsilon_0 \\frac{\\partial \\mathbf{E}}{\\partial t}',
+    description: 'Unifies electricity, magnetism, and electromagnetic wave propagation in media.',
+    variables: 'n: Refractive index √(εᵣμᵣ), v_p: Phase velocity in medium (m/s)',
+    calcLabel: 'Wave Speed in Medium v = c/n (m/s)',
+    inputs: [
+      { key: 'er', label: 'Relative Permittivity εᵣ', defaultVal: 2.25 },
+      { key: 'mur', label: 'Relative Permeability μᵣ', defaultVal: 1.0 }
+    ],
+    compute: (v) => ({ val: 299792458 / Math.sqrt(Math.max(1, v.er * v.mur)), unit: 'm/s' })
+  },
+  {
+    id: 'f_coulomb',
+    category: 'Electrodynamics',
+    title: "Coulomb's Electrostatic Law",
+    equation: 'F = (1 / 4πε₀) · |q₁ q₂| / r²',
+    latex: 'F = \\frac{1}{4\\pi\\varepsilon_0} \\frac{|q_1 q_2|}{r^2}',
+    description: 'Electrostatic force magnitude between two point charges separated by distance r in vacuum.',
+    variables: 'k_e = 8.98755×10⁹ N·m²/C², q₁,q₂: Charges (C), r: Distance (m)',
+    calcLabel: 'Electrostatic Force F (N)',
+    inputs: [
+      { key: 'q1', label: 'Charge q₁ (C)', defaultVal: 1.602e-19 },
+      { key: 'q2', label: 'Charge q₂ (C)', defaultVal: 1.602e-19 },
+      { key: 'r', label: 'Separation r (m)', defaultVal: 5.29e-11 }
+    ],
+    compute: (v) => ({ val: (8.9875517923e9 * Math.abs(v.q1 * v.q2)) / Math.max(1e-30, v.r * v.r), unit: 'N' })
+  },
+  {
+    id: 'f_lorentz_force',
+    category: 'Electrodynamics',
+    title: 'Lorentz Force & Cyclotron Radius',
+    equation: 'F = q(E + v × B)  |  r_c = mv / (|q|B)',
+    latex: '\\mathbf{F} = q(\\mathbf{E} + \\mathbf{v} \\times \\mathbf{B}), \\quad r_c = \\frac{mv}{|q|B}',
+    description: 'Force on a charged particle moving in electromagnetic fields and resulting magnetic gyroradius.',
+    variables: 'm: Mass (kg), v: Speed (m/s), q: Charge (C), B: Magnetic Field (T)',
+    calcLabel: 'Magnetic Force q·v·B (N)',
+    inputs: [
+      { key: 'q', label: 'Charge q (C)', defaultVal: 1.60217663e-19 },
+      { key: 'v', label: 'Velocity v (m/s)', defaultVal: 2.0e6 },
+      { key: 'B', label: 'Magnetic Field B (T)', defaultVal: 0.5 }
+    ],
+    compute: (v) => ({ val: Math.abs(v.q * v.v * v.B), unit: 'N' })
+  },
+  {
+    id: 'f_doubleslit',
+    category: 'Electrodynamics',
+    title: "Young's Double-Slit Interference",
+    equation: 'Δy = λ L / d  |  d sin θ = m λ',
+    latex: '\\Delta y = \\frac{\\lambda L}{d}, \\quad I(\\theta) = I_0 \\cos^2\\left(\\frac{\\pi d \\sin\\theta}{\\lambda}\\right)',
+    description: 'Fringe spacing Δy on a screen at distance L from two coherent slits separated by d.',
+    variables: 'λ: Wavelength (nm), L: Screen Distance (m), d: Slit Separation (mm)',
+    calcLabel: 'Fringe Spacing Δy (mm)',
+    inputs: [
+      { key: 'lam_nm', label: 'Wavelength λ (nm)', defaultVal: 532 },
+      { key: 'L_m', label: 'Screen Distance L (m)', defaultVal: 1.5 },
+      { key: 'd_mm', label: 'Slit Separation d (mm)', defaultVal: 0.25 }
+    ],
+    compute: (v) => ({ val: ((v.lam_nm * 1e-6) * (v.L_m * 1e3)) / Math.max(1e-6, v.d_mm), unit: 'mm' })
+  },
+  {
+    id: 'f_boltzmann',
+    category: 'Statistical',
+    title: 'Boltzmann Entropy Formula',
+    equation: 'S = k_B ln Ω',
+    latex: 'S = k_B \\ln \\Omega',
+    description: 'Connects macroscopic thermodynamic entropy S to the number of accessible microstates Ω.',
+    variables: 'k_B = 1.380649×10⁻²³ J/K, Ω: Multiplicity of microstates',
+    calcLabel: 'Entropy S (J/K)',
+    inputs: [
+      { key: 'omega', label: 'Microstates Ω', defaultVal: 1.0e24 }
+    ],
+    compute: (v) => ({ val: 1.380649e-23 * Math.log(Math.max(1, v.omega)), unit: 'J/K' })
+  },
+  {
+    id: 'f_planck',
+    category: 'Statistical',
+    title: 'Wien Displacement & Blackbody Peak',
+    equation: 'λ_max · T = b ≈ 2.8978 × 10⁻³ m·K',
+    latex: '\\lambda_{\\max} T = b, \\quad u_\\nu(T) = \\frac{8\\pi h \\nu^3}{c^3} \\frac{1}{e^{h\\nu/k_B T} - 1}',
+    description: 'Peak emission wavelength of a Planckian blackbody radiator at equilibrium temperature T.',
+    variables: 'T: Absolute Temperature (K), b = 2.897771955×10⁻³ m·K',
+    calcLabel: 'Peak Wavelength λ_max (nm)',
+    inputs: [
+      { key: 'T', label: 'Temperature T (K)', defaultVal: 5778 }
+    ],
+    compute: (v) => ({ val: (2.897771955e-3 / Math.max(1e-3, v.T)) * 1e9, unit: 'nm' })
+  },
+  {
+    id: 'f_ideal_gas',
+    category: 'Statistical',
+    title: 'Maxwell–Boltzmann Thermal RMS Speed',
+    equation: 'v_rms = √(3 k_B T / m) = √(3 R T / M)',
+    latex: 'v_{\\text{rms}} = \\sqrt{\\frac{3 k_B T}{m}} = \\sqrt{\\frac{3 R T}{M}}',
+    description: 'Root-mean-square thermal speed of gas molecules of molar mass M at temperature T.',
+    variables: 'T: Temperature (K), M: Molar Mass (g/mol), R = 8.31446 J/(mol·K)',
+    calcLabel: 'RMS Thermal Speed v_rms (m/s)',
+    inputs: [
+      { key: 'T', label: 'Temperature T (K)', defaultVal: 300 },
+      { key: 'M_g', label: 'Molar Mass M (g/mol)', defaultVal: 28.014 }
+    ],
+    compute: (v) => ({ val: Math.sqrt((3 * 8.314462618 * Math.max(0, v.T)) / Math.max(1e-6, v.M_g * 1e-3)), unit: 'm/s' })
+  },
+  {
+    id: 'f_einstein_rel',
+    category: 'Relativity',
+    title: 'Relativistic Energy–Momentum Relation',
+    equation: 'E² = (pc)² + (m₀c²)²  |  γ = 1/√(1 − β²)',
+    latex: 'E^2 = (pc)^2 + (m_0 c^2)^2, \\quad \\gamma = \\frac{1}{\\sqrt{1 - v^2/c^2}}',
+    description: 'Lorentz factor γ and total relativistic energy of a particle moving at fraction β = v/c.',
+    variables: 'β = v/c: Speed fraction of light (0 ≤ β < 1), γ: Lorentz factor',
+    calcLabel: 'Lorentz Factor γ',
+    inputs: [
+      { key: 'beta', label: 'Velocity Fraction β = v/c', defaultVal: 0.866 }
+    ],
+    compute: (v) => {
+      const b = Math.min(0.99999999, Math.max(0, Math.abs(v.beta)));
+      return { val: 1 / Math.sqrt(1 - b * b), unit: '(dimensionless)' };
+    }
+  },
+  {
+    id: 'f_schwarzschild',
+    category: 'Relativity',
+    title: 'Schwarzschild Event Horizon Radius',
+    equation: 'r_s = 2 G M / c²',
+    latex: 'r_s = \\frac{2GM}{c^2}, \\quad ds^2 = -\\left(1-\\frac{r_s}{r}\\right)c^2 dt^2 + \\left(1-\\frac{r_s}{r}\\right)^{-1}dr^2 + r^2 d\\Omega^2',
+    description: 'Gravitational radius of a non-rotating spherically symmetric mass M in General Relativity.',
+    variables: 'M_solar: Mass in Solar Masses (M☉ = 1.98847×10³⁰ kg), r_s: Radius (km)',
+    calcLabel: 'Schwarzschild Radius r_s (km)',
+    inputs: [
+      { key: 'M_sun', label: 'Mass (in Solar Masses M☉)', defaultVal: 10.0 }
+    ],
+    compute: (v) => ({ val: 2.95325 * Math.max(0, v.M_sun), unit: 'km' })
+  },
+  {
+    id: 'f_hubble',
+    category: 'Relativity',
+    title: 'Hubble–Lemaître Cosmological Expansion',
+    equation: 'v = H₀ · d  |  z ≈ v / c',
+    latex: 'v = H_0 d',
+    description: 'Recessional velocity of extragalactic objects as a function of proper distance d in an expanding universe.',
+    variables: 'H₀: Hubble parameter (km/s/Mpc), d: Proper Distance (Mpc)',
+    calcLabel: 'Recessional Velocity v (km/s)',
+    inputs: [
+      { key: 'H0', label: 'Hubble Constant H₀ (km/s/Mpc)', defaultVal: 70.0 },
+      { key: 'd_mpc', label: 'Distance d (Mpc)', defaultVal: 100.0 }
+    ],
+    compute: (v) => ({ val: v.H0 * v.d_mpc, unit: 'km/s' })
+  }
+];
+
+// ── Fundamental Physical Constants (CODATA) ─────────────────
+const PHYSICAL_CONSTANTS_DB = [
+  { name: 'Speed of light in vacuum', symbol: 'c', value: '299792458', unit: 'm·s⁻¹' },
+  { name: 'Planck constant', symbol: 'h', value: '6.62607015e-34', unit: 'J·s' },
+  { name: 'Reduced Planck constant', symbol: 'ℏ', value: '1.054571817e-34', unit: 'J·s' },
+  { name: ' Newtonian constant of gravitation', symbol: 'G', value: '6.67430e-11', unit: 'm³·kg⁻¹·s⁻²' },
+  { name: 'Elementary charge', symbol: 'e', value: '1.602176634e-19', unit: 'C' },
+  { name: 'Electron mass', symbol: 'm_e', value: '9.1093837015e-31', unit: 'kg' },
+  { name: 'Proton mass', symbol: 'm_p', value: '1.67262192369e-27', unit: 'kg' },
+  { name: 'Boltzmann constant', symbol: 'k_B', value: '1.380649e-23', unit: 'J·K⁻¹' },
+  { name: 'Avogadro constant', symbol: 'N_A', value: '6.02214076e23', unit: 'mol⁻¹' },
+  { name: 'Vacuum electric permittivity', symbol: 'ε₀', value: '8.8541878128e-12', unit: 'F·m⁻¹' },
+  { name: 'Vacuum magnetic permeability', symbol: 'μ₀', value: '1.25663706212e-6', unit: 'N·A⁻²' },
+  { name: 'Fine-structure constant', symbol: 'α', value: '0.0072973525693', unit: 'dimensionless' },
+  { name: 'Stefan–Boltzmann constant', symbol: 'σ', value: '5.670374419e-8', unit: 'W·m⁻²·K⁻⁴' },
+  { name: 'Bohr radius', symbol: 'a₀', value: '5.29177210903e-11', unit: 'm' }
+];
+
+// ── Daily Conceptual Challenges for Student Dashboard ────────
+const DAILY_CHALLENGES_DB = [
+  {
+    topic: 'QUANTUM MECHANICS · WAVEFUNCTIONS',
+    question: 'If the width L of a 1D infinite potential well is doubled while keeping the quantum number n = 1 fixed, how does the ground-state energy E₁ change?',
+    options: [
+      'It decreases by a factor of 4 (E₁ → E₁ / 4)',
+      'It decreases by a factor of 2 (E₁ → E₁ / 2)',
+      'It increases by a factor of 2 (E₁ → 2 E₁)',
+      'It remains unchanged'
+    ],
+    correctIndex: 0,
+    explanation: 'Since Eₙ = n²π²ℏ² / (2mL²), doubling L scales the energy by 1 / 2² = 1/4.'
+  },
+  {
+    topic: 'CLASSICAL MECHANICS · ORBITAL DYNAMICS',
+    question: 'In the circular restricted three-body problem, how many co-rotating equilibrium Lagrange points exist in the orbital plane?',
+    options: [
+      '3 collinear points only',
+      '5 points (3 unstable collinear L₁, L₂, L₃ and 2 triangular L₄, L₅)',
+      '2 stable points at periapsis and apoapsis',
+      '4 symmetric points around the barycenter'
+    ],
+    correctIndex: 1,
+    explanation: 'Euler and Lagrange proved there are 5 equilibrium points: L₁, L₂, L₃ along the line joining the primaries, and L₄, L₅ forming equilateral triangles.'
+  },
+  {
+    topic: 'STATISTICAL PHYSICS · THERMODYNAMICS',
+    question: 'According to Wien’s Displacement Law, if a star’s surface temperature doubles from 3,000 K to 6,000 K, its peak blackbody wavelength λ_max:',
+    options: [
+      'Doubles (shifts toward infrared)',
+      'Halves (shifts toward shorter, bluer wavelengths)',
+      'Decreases by a factor of 16',
+      'Remains constant while total luminosity increases'
+    ],
+    correctIndex: 1,
+    explanation: 'From λ_max · T = b, λ_max is inversely proportional to T. Doubling T halves λ_max.'
+  },
+  {
+    topic: 'ELECTRODYNAMICS · PHYSICAL OPTICS',
+    question: 'In Young’s double-slit experiment, if the slit separation d is halved while screen distance L and wavelength λ remain fixed, the fringe spacing Δy:',
+    options: [
+      'Halves',
+      'Doubles',
+      'Quadruples',
+      'Vanishes due to diffraction'
+    ],
+    correctIndex: 1,
+    explanation: 'Since Δy = λL / d, halving the slit separation d doubles the distance between adjacent bright fringes.'
+  }
+];
+
+function loadFormulaBookmarks() {
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_KEY);
+    return raw ? JSON.parse(raw) : ['f_schrodinger', 'f_lagrangian', 'f_gravitation'];
+  } catch {
+    return ['f_schrodinger', 'f_lagrangian'];
+  }
+}
+
+function saveFormulaBookmarks(list) {
+  try {
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function copyTextSafe(text, successMsg = 'Copied to clipboard!') {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(successMsg, 'success', 2200);
+    }).catch(() => fallbackCopy(text, successMsg));
+  } else {
+    fallbackCopy(text, successMsg);
+  }
+}
+
+function fallbackCopy(text, successMsg) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast(successMsg, 'success', 2200);
+  } catch {
+    showToast('Copy not supported in this browser context.', 'warning');
+  }
+}
+
+// ── Default Seed Threads for Academic Forum ─────────────────
+const DEFAULT_FORUM_THREADS = [
+  {
+    id: 'th_101',
+    title: 'Symplectic Velocity-Verlet vs. RK4 energy drift in the Restricted 3-Body Lab',
+    category: 'Astrophysics',
+    authorName: 'Aritra Sengupta',
+    authorEmail: 'aritra.s@presiuniv.ac.in',
+    authorRole: 'member',
+    createdAt: '2026-10-18T14:20:00.000Z',
+    tags: ['Three-Body', 'Symplectic', 'Lagrange Points'],
+    body: 'When running long orbital integrations around the L4 tadpole point in the Interactive Lab, why does a 2nd-order symplectic Velocity-Verlet integrator preserve bounded total energy E = T + V better over 10,000 orbits than standard 4th-order Runge-Kutta (RK4)?',
+    upvotes: 14,
+    upvotedBy: [],
+    pinned: true,
+    replies: [
+      {
+        id: 'rep_1',
+        authorName: 'Dr. Aritra Bakshi',
+        authorEmail: 'abakshi@presiuniv.ac.in',
+        authorRole: 'admin',
+        createdAt: '2026-10-18T16:05:00.000Z',
+        body: 'Great observation! Symplectic integrators exactly conserve a shadow Hamiltonian H_tilde that stays within O(dt^2) of the true Hamiltonian, so phase-space volume (Liouville theorem) is preserved and energy error oscillates without secular drift. Standard RK4 is non-symplectic and leaks energy monotonically over many periods.'
+      },
+      {
+        id: 'rep_2',
+        authorName: 'Sohini Chatterjee',
+        authorEmail: 'sohini.c@presiuniv.ac.in',
+        authorRole: 'student',
+        createdAt: '2026-10-19T09:15:00.000Z',
+        body: 'You can test this directly in Lab Module 01 by setting Mass Ratio mu = 0.04 and clicking the "Chaotic Slingshot" preset—watch how the total energy E telemetry stays bounded!'
+      }
+    ]
+  },
+  {
+    id: 'th_102',
+    title: 'Physical intuition behind resonant transmission in double-barrier quantum tunneling',
+    category: 'Quantum / Optics',
+    authorName: 'Debanjan Roy',
+    authorEmail: 'debanjan.roy@presiuniv.ac.in',
+    authorRole: 'student',
+    createdAt: '2026-10-20T11:40:00.000Z',
+    tags: ['Quantum Tunneling', 'WKB', 'Wavepacket'],
+    body: 'In Lab Module 03 (Quantum Wavepacket Tunneling), even when the particle energy E is lower than the barrier height V0, a noticeable transmitted probability packet emerges on the right. How does Fabry-Pérot interference enable near-100% transmission if two barriers are placed in series?',
+    upvotes: 11,
+    upvotedBy: [],
+    pinned: false,
+    replies: [
+      {
+        id: 'rep_3',
+        authorName: 'Prof. Snigdha Das',
+        authorEmail: 'snigdha.das@presiuniv.ac.in',
+        authorRole: 'member',
+        createdAt: '2026-10-20T15:12:00.000Z',
+        body: 'When the incident energy E matches a quasi-bound eigenstate between the two barriers, destructive interference cancels the reflected wave and constructive interference builds up amplitude inside the well—exactly analogous to an optical Fabry-Pérot etalon!'
+      }
+    ]
+  },
+  {
+    id: 'th_103',
+    title: 'Measuring Seebeck coefficient and thermal conductivity in low-dimensional tellurides',
+    category: 'Materials Physics',
+    authorName: 'Ananya Mukherjee',
+    authorEmail: 'ananya.m@presiuniv.ac.in',
+    authorRole: 'member',
+    createdAt: '2026-10-22T08:30:00.000Z',
+    tags: ['Thermoelectrics', 'Condensed Matter', 'Transport'],
+    body: 'Sharing our experimental checklist from Baker Building Lab for minimizing radiative heat-loss errors during four-probe resistivity and Seebeck measurements between 80 K and 400 K. Feel free to ask if you are joining next month’s Condensed Matter project!',
+    upvotes: 9,
+    upvotedBy: [],
+    pinned: false,
+    replies: []
+  },
+  {
+    id: 'th_104',
+    title: 'Choosing Courant-Friedrichs-Lewy (CFL) step sizes for 1D Crank-Nicolson Schrödinger solvers',
+    category: 'Computational Physics',
+    authorName: 'Ritwick Ghosh',
+    authorEmail: 'ritwick.g@presiuniv.ac.in',
+    authorRole: 'student',
+    createdAt: '2026-10-24T17:45:00.000Z',
+    tags: ['Crank-Nicolson', 'Unitary Evolution', 'Python'],
+    body: 'While explicit forward-Euler schemes for the time-dependent Schrödinger equation are unconditionally unstable (violating unitarity ||psi|| = 1), Crank-Nicolson is unconditionally unitary. What spatial grid dx vs dt ratio gives the cleanest group-velocity dispersion in practice?',
+    upvotes: 8,
+    upvotedBy: [],
+    pinned: false,
+    replies: []
+  }
+];
+
+function loadForumThreads() {
+  try {
+    const raw = localStorage.getItem(FORUM_THREADS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  localStorage.setItem(FORUM_THREADS_KEY, JSON.stringify(DEFAULT_FORUM_THREADS));
+  return clone(DEFAULT_FORUM_THREADS);
+}
+
+function saveForumThreads(threads) {
+  try {
+    localStorage.setItem(FORUM_THREADS_KEY, JSON.stringify(threads));
+  } catch {}
+}
+
+// ── 1. STUDENT PORTAL DASHBOARD INITIALIZER ─────────────────
 function initStudent() {
   const session = requireRole('student');
   if (!session) return;
@@ -3206,89 +3880,1396 @@ function initStudent() {
   if (idSpan) {
     idSpan.textContent = session.name || session.id.split('@')[0] || 'Student';
   }
+  const emailBadge = qs('#studentEmailBadge');
+  if (emailBadge) {
+    emailBadge.textContent = session.id || '';
+  }
+  const roleBadge = qs('#studentRoleBadge');
+  if (roleBadge) {
+    roleBadge.textContent = `${capitalize(session.role || 'student')} · Interactive Academic Access`;
+  }
+
+  // Update Live Telemetry Cards
+  const bookmarks = loadFormulaBookmarks();
+  const threads = loadForumThreads();
+  const db = loadDB();
+  const totalReplies = threads.reduce((acc, t) => acc + (t.replies ? t.replies.length : 0), 0);
+  const labRuns = parseInt(localStorage.getItem(LAB_RUNS_KEY) || '4', 10);
+
+  const bmCountEl = qs('#statBookmarkedCount');
+  if (bmCountEl) bmCountEl.textContent = `${bookmarks.length} Bookmarked · Live Solvers`;
+
+  const forumStatEl = qs('#statForumThreads');
+  if (forumStatEl) forumStatEl.textContent = `${threads.length} Threads`;
+  const forumRepEl = qs('#statForumReplies');
+  if (forumRepEl) forumRepEl.textContent = `${totalReplies} Peer Replies · 4 Rooms`;
+
+  const upCountEl = qs('#statUpcomingCount');
+  if (upCountEl) upCountEl.textContent = `${(db.events || []).length + (db.colloquia || []).length} Listed`;
+
+  const labRunsEl = qs('#statLabRuns');
+  if (labRunsEl) labRunsEl.textContent = `4 Engines (${labRuns} runs)`;
+
+  // Daily Conceptual Challenge Widget
+  let currentChallengeIdx = 0;
+  const topicEl = qs('#challengeTopic');
+  const questionEl = qs('#challengeQuestion');
+  const optionsEl = qs('#challengeOptions');
+  const feedbackEl = qs('#challengeFeedback');
+  const nextBtn = qs('#nextChallengeBtn');
+
+  function renderChallenge(idx) {
+    const item = DAILY_CHALLENGES_DB[idx % DAILY_CHALLENGES_DB.length];
+    if (!topicEl || !questionEl || !optionsEl) return;
+    topicEl.textContent = item.topic;
+    questionEl.textContent = item.question;
+    if (feedbackEl) {
+      feedbackEl.className = 'feedback-banner';
+      feedbackEl.textContent = '';
+    }
+    optionsEl.innerHTML = item.options.map((opt, oIdx) => `
+      <button type="button" class="btn ghost challenge-opt-btn" data-idx="${oIdx}" style="justify-content:flex-start; text-align:left; padding:10px 14px; font-size:13px; width:100%;">
+        <strong style="font-family:var(--font-mono); color:var(--cyan); margin-right:8px;">${String.fromCharCode(65 + oIdx)}.</strong>
+        <span>${escapeHTML(opt)}</span>
+      </button>
+    `).join('');
+
+    optionsEl.querySelectorAll('.challenge-opt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chosen = parseInt(btn.dataset.idx, 10);
+        const isCorrect = chosen === item.correctIndex;
+        optionsEl.querySelectorAll('.challenge-opt-btn').forEach((b, bIdx) => {
+          b.style.pointerEvents = 'none';
+          if (bIdx === item.correctIndex) {
+            b.style.borderColor = 'var(--green)';
+            b.style.color = 'var(--green)';
+          } else if (bIdx === chosen && !isCorrect) {
+            b.style.borderColor = 'var(--red)';
+            b.style.color = 'var(--red)';
+          }
+        });
+        if (feedbackEl) {
+          feedbackEl.className = `feedback-banner ${isCorrect ? 'success' : 'error'} show`;
+          feedbackEl.textContent = (isCorrect ? '✓ Correct! ' : '✕ Not quite. ') + item.explanation;
+        }
+      });
+    });
+  }
+
+  renderChallenge(currentChallengeIdx);
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      currentChallengeIdx = (currentChallengeIdx + 1) % DAILY_CHALLENGES_DB.length;
+      renderChallenge(currentChallengeIdx);
+    });
+  }
+
+  // Personal Lab & Derivation Scratchpad
+  const pad = qs('#studentScratchpad');
+  const padStatus = qs('#scratchpadStatus');
+  const padChars = qs('#scratchpadCharCount');
+  const exportBtn = qs('#exportNotesBtn');
+  const clearBtn = qs('#clearNotesBtn');
+
+  if (pad) {
+    const savedNotes = localStorage.getItem(SCRATCHPAD_KEY) || '';
+    pad.value = savedNotes;
+    if (padChars) padChars.textContent = `${savedNotes.length} chars`;
+
+    pad.addEventListener('input', () => {
+      const val = pad.value;
+      try {
+        localStorage.setItem(SCRATCHPAD_KEY, val);
+        if (padStatus) padStatus.textContent = '✓ Saved at ' + new Date().toLocaleTimeString();
+      } catch {}
+      if (padChars) padChars.textContent = `${val.length} chars`;
+    });
+  }
+
+  if (exportBtn && pad) {
+    exportBtn.addEventListener('click', () => {
+      const content = pad.value.trim() || 'Presidency University Physics Society — Student Study Notes';
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pups-physics-notes-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Study notes exported as .txt file.', 'success');
+    });
+  }
+
+  if (clearBtn && pad) {
+    clearBtn.addEventListener('click', () => {
+      pad.value = '';
+      try { localStorage.removeItem(SCRATCHPAD_KEY); } catch {}
+      if (padChars) padChars.textContent = '0 chars';
+      if (padStatus) padStatus.textContent = 'Scratchpad cleared';
+      showToast('Scratchpad cleared.', 'info');
+    });
+  }
+
+  // Render Bookmarked Formulas Quick List
+  const bmContainer = qs('#studentBookmarkedFormulas');
+  if (bmContainer) {
+    const bmSet = new Set(loadFormulaBookmarks());
+    const savedItems = PHYSICS_FORMULAS_DB.filter(f => bmSet.has(f.id));
+    if (savedItems.length === 0) {
+      bmContainer.innerHTML = `<p style="font-size:12.5px; color:var(--muted); margin:0;">No formulas bookmarked yet. Click the ★ icon on any card in the <a href="formulas.html" style="color:var(--cyan);">Formula Compendium</a>.</p>`;
+    } else {
+      bmContainer.innerHTML = savedItems.map(f => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; gap:10px;">
+          <div>
+            <strong style="font-size:13.5px; color:var(--text-heading); display:block;">${escapeHTML(f.title)}</strong>
+            <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--cyan);">${escapeHTML(f.equation)}</span>
+          </div>
+          <a class="mini-btn" href="formulas.html#${escapeAttr(f.id)}" style="text-decoration:none;">Solve →</a>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Render Upcoming Events & Colloquia Feed
+  const upList = qs('#studentUpcomingList');
+  if (upList) {
+    const items = [
+      ...(db.events || []).slice(0, 2).map(e => ({ kind: e.type || 'Event', title: e.title, date: e.date, link: 'events.html' })),
+      ...(db.colloquia || []).slice(0, 2).map(c => ({ kind: 'Colloquium · ' + c.field, title: c.title, date: c.date, link: 'colloquium.html' }))
+    ];
+    upList.innerHTML = items.map(it => `
+      <a href="${it.link}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; text-decoration:none; color:var(--text);">
+        <div>
+          <span style="font-family:var(--font-mono); font-size:10px; color:var(--gold); text-transform:uppercase;">${escapeHTML(it.kind)}</span>
+          <strong style="display:block; font-size:13.5px; color:var(--text-heading);">${escapeHTML(it.title)}</strong>
+        </div>
+        <span style="font-family:var(--font-mono); font-size:11px; color:var(--muted); white-space:nowrap;">${formatDate(it.date)}</span>
+      </a>
+    `).join('');
+  }
+
+  initTiltCards();
 }
 
+// ── 2. INTERACTIVE FORMULAS & SOLVERS INITIALIZER ───────────
 function initFormulas() {
   const session = requireRole('student');
   if (!session) return;
   initNav();
+
+  const grid = qs('#formulasGrid');
+  const searchInput = qs('#formulaSearchInput');
+  const catBtns = qsa('.formula-cat-btn');
+  const calcSelect = qs('#calcFormulaSelect');
+  const calcInputs = qs('#calcInputsContainer');
+  const calcResult = qs('#calcResultValue');
+  const calcTarget = qs('#calcTargetLabel');
+  const calcPreview = qs('#calcFormulaPreview');
+
+  let activeCategory = 'all';
+  let bookmarks = new Set(loadFormulaBookmarks());
+
+  function formatScientific(num) {
+    if (!Number.isFinite(num)) return 'Undefined';
+    if (num === 0) return '0';
+    const abs = Math.abs(num);
+    if (abs >= 1e5 || abs < 1e-3) {
+      return num.toExponential(4).replace('e+', ' × 10^').replace('e-', ' × 10^-');
+    }
+    return Number(num.toPrecision(6)).toString();
+  }
+
+  // Populate Solver Dropdown
+  if (calcSelect) {
+    calcSelect.innerHTML = PHYSICS_FORMULAS_DB.map(f =>
+      `<option value="${escapeAttr(f.id)}">${escapeHTML(f.category)} — ${escapeHTML(f.title)} (${escapeHTML(f.equation)})</option>`
+    ).join('');
+  }
+
+  function loadCalculatorFormula(formulaId) {
+    const f = PHYSICS_FORMULAS_DB.find(item => item.id === formulaId) || PHYSICS_FORMULAS_DB[0];
+    if (!f || !calcInputs) return;
+    if (calcSelect && calcSelect.value !== f.id) calcSelect.value = f.id;
+    if (calcTarget) calcTarget.textContent = f.calcLabel;
+    if (calcPreview) calcPreview.textContent = `${f.equation}   |   ${f.variables}`;
+
+    calcInputs.innerHTML = f.inputs.map(inp => `
+      <div class="field" style="margin:0;">
+        <label for="calc_inp_${escapeAttr(inp.key)}" style="font-size:11px;">${escapeHTML(inp.label)}</label>
+        <input id="calc_inp_${escapeAttr(inp.key)}" data-key="${escapeAttr(inp.key)}" type="number" step="any" value="${inp.defaultVal}" style="padding:8px 10px; font-family:var(--font-mono); font-size:13px;">
+      </div>
+    `).join('');
+
+    function evaluateNow() {
+      const vals = {};
+      f.inputs.forEach(inp => {
+        const el = qs(`#calc_inp_${inp.key}`);
+        vals[inp.key] = parseFloat(el ? el.value : inp.defaultVal) || 0;
+      });
+      const res = f.compute(vals);
+      if (calcResult) {
+        calcResult.textContent = `${formatScientific(res.val)} ${res.unit}`;
+      }
+    }
+
+    calcInputs.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', evaluateNow);
+    });
+    evaluateNow();
+  }
+
+  if (calcSelect) {
+    calcSelect.addEventListener('change', () => loadCalculatorFormula(calcSelect.value));
+  }
+
+  function renderFormulaCards() {
+    if (!grid) return;
+    const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+
+    const filtered = PHYSICS_FORMULAS_DB.filter(f => {
+      const matchCat =
+        activeCategory === 'all' ? true :
+        activeCategory === 'bookmarked' ? bookmarks.has(f.id) :
+        f.category.toLowerCase() === activeCategory.toLowerCase();
+      const matchQuery =
+        !query ||
+        f.title.toLowerCase().includes(query) ||
+        f.category.toLowerCase().includes(query) ||
+        f.equation.toLowerCase().includes(query) ||
+        f.description.toLowerCase().includes(query) ||
+        f.variables.toLowerCase().includes(query);
+      return matchCat && matchQuery;
+    });
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<div class="panel" style="grid-column: 1 / -1; text-align:center; padding:32px;"><p style="color:var(--muted); margin:0;">No equations match your filter criteria.</p></div>`;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(f => {
+      const isSaved = bookmarks.has(f.id);
+      return `
+        <article class="card" id="${escapeAttr(f.id)}" style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div class="meta">${escapeHTML(f.category)}</div>
+              <button type="button" class="mini-btn bookmark-formula-btn" data-id="${escapeAttr(f.id)}" title="${isSaved ? 'Remove bookmark' : 'Bookmark formula'}" style="padding:3px 8px; font-size:12px; color:${isSaved ? 'var(--gold)' : 'var(--muted)'}; border-color:${isSaved ? 'var(--gold)' : 'var(--line)'};">
+                ${isSaved ? '★ Saved' : '☆ Bookmark'}
+              </button>
+            </div>
+            <h3 style="margin-top:8px;">${escapeHTML(f.title)}</h3>
+            <div class="equation" style="font-size:18px; margin:10px 0; padding:10px 12px; background:var(--panel2); border-radius:6px; border:1px solid var(--line); font-family:var(--font-mono); overflow-x:auto;">${escapeHTML(f.equation)}</div>
+            <p style="font-size:13px; margin-bottom:8px;">${escapeHTML(f.description)}</p>
+            <small style="display:block; font-family:var(--font-mono); font-size:11px; color:var(--muted); line-height:1.5;">${escapeHTML(f.variables)}</small>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; padding-top:12px; border-top:1px solid var(--line);">
+            <button type="button" class="mini-btn primary-btn solve-formula-btn" data-id="${escapeAttr(f.id)}" style="flex:1;">
+              ⚡ Open in Solver
+            </button>
+            <button type="button" class="mini-btn copy-latex-btn" data-latex="${escapeAttr(f.latex)}" title="Copy LaTeX code">
+              📋 Copy LaTeX
+            </button>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    // Wire card buttons
+    grid.querySelectorAll('.solve-formula-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fid = btn.dataset.id;
+        loadCalculatorFormula(fid);
+        const panel = qs('#formulaCalculatorPanel');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showToast('Formula loaded into interactive solver.', 'info', 1800);
+      });
+    });
+
+    grid.querySelectorAll('.copy-latex-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        copyTextSafe(btn.dataset.latex || '', 'LaTeX equation copied to clipboard!');
+      });
+    });
+
+    grid.querySelectorAll('.bookmark-formula-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fid = btn.dataset.id;
+        if (bookmarks.has(fid)) {
+          bookmarks.delete(fid);
+          showToast('Removed from bookmarked formulas.', 'info', 1800);
+        } else {
+          bookmarks.add(fid);
+          showToast('Formula bookmarked to your Student Portal!', 'success', 1800);
+        }
+        saveFormulaBookmarks(Array.from(bookmarks));
+        renderFormulaCards();
+      });
+    });
+  }
+
+  // Category pill filters
+  catBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      catBtns.forEach(b => b.classList.remove('active', 'primary-btn'));
+      btn.classList.add('active', 'primary-btn');
+      activeCategory = btn.dataset.cat || 'all';
+      renderFormulaCards();
+    });
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener('input', renderFormulaCards);
+  }
+
+  // Physical Constants Table & Unit Converter
+  const constBody = qs('#constantsTableBody');
+  const constSearch = qs('#constantSearchInput');
+
+  function renderConstants(filter = '') {
+    if (!constBody) return;
+    const q = filter.trim().toLowerCase();
+    const list = PHYSICAL_CONSTANTS_DB.filter(c =>
+      !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q) || c.unit.toLowerCase().includes(q)
+    );
+    constBody.innerHTML = list.map(c => `
+      <tr>
+        <td><strong>${escapeHTML(c.name)}</strong></td>
+        <td style="font-family:var(--font-mono); color:var(--cyan); font-weight:700;">${escapeHTML(c.symbol)}</td>
+        <td style="font-family:var(--font-mono);">${escapeHTML(c.value)}</td>
+        <td style="font-family:var(--font-mono); color:var(--muted);">${escapeHTML(c.unit)}</td>
+        <td>
+          <button type="button" class="mini-btn copy-const-btn" data-val="${escapeAttr(c.value)}">Copy Value</button>
+        </td>
+      </tr>
+    `).join('');
+
+    constBody.querySelectorAll('.copy-const-btn').forEach(btn => {
+      btn.addEventListener('click', () => copyTextSafe(btn.dataset.val, `Copied ${btn.dataset.val} to clipboard!`));
+    });
+  }
+
+  if (constSearch) {
+    constSearch.addEventListener('input', () => renderConstants(constSearch.value));
+  }
+
+  // Quick Unit Converter
+  const convInput = qs('#unitConvInput');
+  const convType = qs('#unitConvType');
+  const convOut = qs('#unitConvOutput');
+
+  function updateUnitConverter() {
+    if (!convInput || !convType || !convOut) return;
+    const v = parseFloat(convInput.value) || 0;
+    const mode = convType.value;
+    let resText = '';
+    if (mode === 'ev_to_j') {
+      resText = `= ${formatScientific(v * 1.602176634e-19)} J`;
+    } else if (mode === 'j_to_ev') {
+      resText = `= ${formatScientific(v / 1.602176634e-19)} eV`;
+    } else if (mode === 'nm_to_ev') {
+      resText = v > 0 ? `= ${formatScientific(1239.84193 / v)} eV` : '= — eV';
+    } else if (mode === 'k_to_c') {
+      resText = `= ${(v - 273.15).toFixed(2)} °C`;
+    } else if (mode === 'au_to_m') {
+      resText = `= ${formatScientific(v * 1.495978707e11)} m`;
+    } else if (mode === 'pc_to_ly') {
+      resText = `= ${(v * 3.261563777).toFixed(4)} ly`;
+    }
+    convOut.textContent = resText;
+  }
+
+  if (convInput) convInput.addEventListener('input', updateUnitConverter);
+  if (convType) convType.addEventListener('change', updateUnitConverter);
+
+  // Initial render
+  const hashId = (location.hash || '').replace('#', '');
+  const initialFormula = PHYSICS_FORMULAS_DB.some(f => f.id === hashId) ? hashId : PHYSICS_FORMULAS_DB[0].id;
+  loadCalculatorFormula(initialFormula);
+  renderFormulaCards();
+  renderConstants();
+  updateUnitConverter();
 }
 
+// ── 3. INTERACTIVE ACADEMIC FORUM INITIALIZER ───────────────
 function initForum() {
   const session = requireRole('student');
   if (!session) return;
   initNav();
+
+  const container = qs('#forumThreadsContainer');
+  const searchInput = qs('#forumSearchInput');
+  const sortSelect = qs('#forumSortSelect');
+  const roomCards = qsa('.forum-room-card');
+  const toggleNewBtn = qs('#toggleNewThreadBtn');
+  const closeComposerBtn = qs('#closeComposerBtn');
+  const composerPanel = qs('#newThreadComposer');
+  const newThreadForm = qs('#newForumThreadForm');
+
+  let activeRoom = 'all';
+  let openReplyThreadId = null;
+
+  if (toggleNewBtn && composerPanel) {
+    toggleNewBtn.addEventListener('click', () => {
+      const isHidden = composerPanel.style.display === 'none';
+      composerPanel.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        const titleInp = qs('#threadTitleInput');
+        if (titleInp) titleInp.focus();
+      }
+    });
+  }
+
+  if (closeComposerBtn && composerPanel) {
+    closeComposerBtn.addEventListener('click', () => {
+      composerPanel.style.display = 'none';
+    });
+  }
+
+  roomCards.forEach(card => {
+    const activateRoom = () => {
+      roomCards.forEach(c => {
+        c.classList.remove('active');
+        c.style.borderColor = '';
+      });
+      card.classList.add('active');
+      card.style.borderColor = 'var(--cyan)';
+      activeRoom = card.dataset.room || 'all';
+      renderThreads();
+    };
+    card.addEventListener('click', activateRoom);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateRoom();
+      }
+    });
+  });
+
+  function renderThreads() {
+    if (!container) return;
+    const threads = loadForumThreads();
+    const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+    const sortBy = sortSelect ? sortSelect.value : 'popular';
+    const userEmail = (session.id || '').toLowerCase();
+    const isModerator = session.role === 'admin' || session.role === 'member';
+
+    const filtered = threads.filter(t => {
+      const matchRoom = activeRoom === 'all' || t.category === activeRoom;
+      const tagsStr = (t.tags || []).join(' ').toLowerCase();
+      const matchQuery =
+        !query ||
+        t.title.toLowerCase().includes(query) ||
+        t.body.toLowerCase().includes(query) ||
+        t.authorName.toLowerCase().includes(query) ||
+        tagsStr.includes(query);
+      return matchRoom && matchQuery;
+    });
+
+    filtered.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      if (sortBy === 'newest') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sortBy === 'replies') {
+        return (b.replies?.length || 0) - (a.replies?.length || 0);
+      }
+      return (b.upvotes || 0) - (a.upvotes || 0);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <section class="panel" style="text-align:center; padding:36px 20px;">
+          <p style="color:var(--muted); margin:0 0 12px;">No discussion threads match your current room or search query.</p>
+          <button type="button" class="btn primary" id="emptyStartThreadBtn">+ Start the First Discussion</button>
+        </section>`;
+      const emptyBtn = qs('#emptyStartThreadBtn');
+      if (emptyBtn && composerPanel) {
+        emptyBtn.addEventListener('click', () => {
+          composerPanel.style.display = 'block';
+          composerPanel.scrollIntoView({ behavior: 'smooth' });
+        });
+      }
+      return;
+    }
+
+    container.innerHTML = filtered.map(t => {
+      const hasUpvoted = Array.isArray(t.upvotedBy) && t.upvotedBy.includes(userEmail);
+      const canDeleteThread = isModerator || (t.authorEmail && t.authorEmail.toLowerCase() === userEmail);
+      const replies = t.replies || [];
+      const isExpanded = openReplyThreadId === t.id;
+
+      const tagsHTML = (t.tags || []).map(tag =>
+        `<span class="badge" style="font-size:10px; padding:2px 8px;">#${escapeHTML(tag)}</span>`
+      ).join('');
+
+      const repliesHTML = replies.map(r => {
+        const canDelReply = isModerator || (r.authorEmail && r.authorEmail.toLowerCase() === userEmail);
+        return `
+          <div style="padding:12px 14px; background:var(--panel2); border-left:2px solid var(--cyan); border-radius:4px; margin-top:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:13px; color:var(--text-heading);">${escapeHTML(r.authorName)}</strong>
+                <span class="badge-chip ${escapeAttr(r.authorRole || 'student')}" style="font-size:9.5px; padding:1px 6px;">${escapeHTML(capitalize(r.authorRole || 'student'))}</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">${formatDate(r.createdAt)}</span>
+              </div>
+              ${canDelReply ? `<button type="button" class="mini-btn danger-btn delete-reply-btn" data-tid="${escapeAttr(t.id)}" data-rid="${escapeAttr(r.id)}" style="padding:2px 6px; font-size:10px;">Delete</button>` : ''}
+            </div>
+            <p style="margin:0; font-size:13.5px; line-height:1.6; color:var(--text); white-space:pre-line;">${escapeHTML(r.body)}</p>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <article class="panel" id="thread_${escapeAttr(t.id)}" style="padding:22px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+                ${t.pinned ? `<span class="badge" style="border-color:var(--gold); color:var(--gold); font-size:10px;">📌 PINNED</span>` : ''}
+                <span class="kicker" style="margin:0;">${escapeHTML(t.category)}</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">· Posted by <strong>${escapeHTML(t.authorName)}</strong> (${escapeHTML(capitalize(t.authorRole || 'student'))}) on ${formatDate(t.createdAt)}</span>
+              </div>
+              <h2 style="margin:4px 0 10px; font-size:21px; line-height:1.3;">${escapeHTML(t.title)}</h2>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button type="button" class="mini-btn upvote-thread-btn ${hasUpvoted ? 'primary-btn' : ''}" data-tid="${escapeAttr(t.id)}" aria-label="Upvote discussion" style="padding:6px 12px; font-family:var(--font-mono);">
+                ▲ ${t.upvotes || 0}
+              </button>
+              ${canDeleteThread ? `<button type="button" class="mini-btn danger-btn delete-thread-btn" data-tid="${escapeAttr(t.id)}" title="Delete thread" style="padding:6px 10px;">✕</button>` : ''}
+            </div>
+          </div>
+
+          <p style="font-size:14px; line-height:1.7; color:var(--text); margin:0 0 14px; white-space:pre-line;">${escapeHTML(t.body)}</p>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding-top:12px; border-top:1px solid var(--line);">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">${tagsHTML}</div>
+            <button type="button" class="mini-btn toggle-replies-btn" data-tid="${escapeAttr(t.id)}" style="font-family:var(--font-mono);">
+              💬 ${replies.length} ${replies.length === 1 ? 'Reply' : 'Replies'} · ${isExpanded ? 'Hide' : 'View / Reply'}
+            </button>
+          </div>
+
+          <!-- Replies & Reply Composer Drawer -->
+          <div id="replies_box_${escapeAttr(t.id)}" style="display:${isExpanded ? 'block' : 'none'}; margin-top:14px; padding-top:12px; border-top:1px dashed var(--line);">
+            ${repliesHTML || `<p style="font-size:12.5px; color:var(--muted); margin:0 0 10px;">No replies yet. Be the first to respond!</p>`}
+            <form class="reply-thread-form" data-tid="${escapeAttr(t.id)}" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+              <input type="text" class="reply-input" maxlength="1200" placeholder="Write a peer response, derivation hint, or reference..." required style="flex:1; min-width:220px; padding:8px 12px; font-size:13px;">
+              <button type="submit" class="btn primary" style="padding:8px 16px; font-size:12.5px;">Post Reply</button>
+            </form>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    // Wire Upvotes
+    container.querySelectorAll('.upvote-thread-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tid = btn.dataset.tid;
+        const list = loadForumThreads();
+        const item = list.find(x => x.id === tid);
+        if (!item) return;
+        if (!Array.isArray(item.upvotedBy)) item.upvotedBy = [];
+        const idx = item.upvotedBy.indexOf(userEmail);
+        if (idx === -1) {
+          item.upvotedBy.push(userEmail);
+          item.upvotes = (item.upvotes || 0) + 1;
+        } else {
+          item.upvotedBy.splice(idx, 1);
+          item.upvotes = Math.max(0, (item.upvotes || 1) - 1);
+        }
+        saveForumThreads(list);
+        renderThreads();
+      });
+    });
+
+    // Wire Toggle Replies
+    container.querySelectorAll('.toggle-replies-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tid = btn.dataset.tid;
+        openReplyThreadId = openReplyThreadId === tid ? null : tid;
+        renderThreads();
+      });
+    });
+
+    // Wire Reply Submission
+    container.querySelectorAll('.reply-thread-form').forEach(form => {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const tid = form.dataset.tid;
+        const inp = form.querySelector('.reply-input');
+        const body = (inp ? inp.value : '').trim();
+        if (!body) return;
+        const list = loadForumThreads();
+        const item = list.find(x => x.id === tid);
+        if (!item) return;
+        if (!Array.isArray(item.replies)) item.replies = [];
+        item.replies.push({
+          id: 'rep_' + Date.now(),
+          authorName: session.name || session.id.split('@')[0] || 'Student',
+          authorEmail: session.id,
+          authorRole: session.role || 'student',
+          createdAt: new Date().toISOString(),
+          body: body
+        });
+        saveForumThreads(list);
+        openReplyThreadId = tid;
+        renderThreads();
+        showToast('Reply posted to discussion.', 'success', 2000);
+      });
+    });
+
+    // Wire Delete Thread
+    container.querySelectorAll('.delete-thread-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tid = btn.dataset.tid;
+        const list = loadForumThreads().filter(x => x.id !== tid);
+        saveForumThreads(list);
+        renderThreads();
+        showToast('Discussion thread removed.', 'info', 2000);
+      });
+    });
+
+    // Wire Delete Reply
+    container.querySelectorAll('.delete-reply-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tid = btn.dataset.tid;
+        const rid = btn.dataset.rid;
+        const list = loadForumThreads();
+        const item = list.find(x => x.id === tid);
+        if (!item || !Array.isArray(item.replies)) return;
+        item.replies = item.replies.filter(r => r.id !== rid);
+        saveForumThreads(list);
+        openReplyThreadId = tid;
+        renderThreads();
+        showToast('Reply deleted.', 'info', 1800);
+      });
+    });
+  }
+
+  // New Thread Form Submit
+  if (newThreadForm) {
+    newThreadForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = (qs('#threadTitleInput')?.value || '').trim();
+      const category = qs('#threadCategorySelect')?.value || 'Astrophysics';
+      const tagsRaw = (qs('#threadTagsInput')?.value || '').trim();
+      const body = (qs('#threadBodyInput')?.value || '').trim();
+
+      if (!title || !body) {
+        showToast('Please enter both a discussion title and details.', 'error');
+        return;
+      }
+
+      const tags = tagsRaw
+        ? tagsRaw.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean).slice(0, 5)
+        : [category.split(' ')[0]];
+
+      const list = loadForumThreads();
+      const newThread = {
+        id: 'th_' + Date.now(),
+        title,
+        category,
+        authorName: session.name || session.id.split('@')[0] || 'Student',
+        authorEmail: session.id,
+        authorRole: session.role || 'student',
+        createdAt: new Date().toISOString(),
+        tags,
+        body,
+        upvotes: 1,
+        upvotedBy: [(session.id || '').toLowerCase()],
+        pinned: false,
+        replies: []
+      };
+      list.unshift(newThread);
+      saveForumThreads(list);
+      newThreadForm.reset();
+      if (composerPanel) composerPanel.style.display = 'none';
+      openReplyThreadId = newThread.id;
+      renderThreads();
+      showToast('Discussion thread published to the forum!', 'success');
+    });
+  }
+
+  if (searchInput) searchInput.addEventListener('input', renderThreads);
+  if (sortSelect) sortSelect.addEventListener('change', renderThreads);
+
+  renderThreads();
 }
 
+// ── 4. REAL-TIME INTERACTIVE PHYSICS LAB ENGINE ─────────────
 function initLab() {
   const session = requireRole('student');
   if (!session) return;
   initNav();
 
+  const canvas = qs('#labSimCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
   const stateSpan = qs('#labState');
-  const messageP  = qs('#labMessage');
-  const runBtn    = qs('#runLab');
-  const resetBtn  = qs('#resetLab');
+  const messageP = qs('#labMessage');
+  const eqDisplay = qs('#labEquationDisplay');
+  const expKicker = qs('#labExpKicker');
+  const expTitle = qs('#labExpTitle');
+  const slidersBox = qs('#labSlidersContainer');
+  const presetsBox = qs('#labPresetsBar');
+  const runBtn = qs('#runLab');
+  const stepBtn = qs('#stepLab');
+  const resetBtn = qs('#resetLab');
+  const clearTrailBtn = qs('#clearTrailBtn');
+  const exportCsvBtn = qs('#exportLabCsvBtn');
+  const expTabs = qsa('.lab-exp-tab');
+
+  const teleL1 = qs('#teleLabel1'), teleV1 = qs('#teleVal1');
+  const teleL2 = qs('#teleLabel2'), teleV2 = qs('#teleVal2');
+  const teleL3 = qs('#teleLabel3'), teleV3 = qs('#teleVal3');
+  const teleL4 = qs('#teleLabel4'), teleV4 = qs('#teleVal4');
+
+  let activeExp = 'orbital';
+  let isRunning = true;
+  let simTime = 0;
+  let telemetryLog = [];
+  let animId = null;
+
+  // Increment lab runs counter for dashboard stats
+  try {
+    const prev = parseInt(localStorage.getItem(LAB_RUNS_KEY) || '4', 10);
+    localStorage.setItem(LAB_RUNS_KEY, String(prev + 1));
+  } catch {}
+
+  // Resize canvas cleanly
+  function syncCanvasSize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.max(480, Math.floor(rect.width));
+    canvas.height = Math.max(320, Math.floor(rect.height));
+  }
+  syncCanvasSize();
+  window.addEventListener('resize', syncCanvasSize, { passive: true });
+
+  // Experiment State Containers
+  const expConfig = {
+    orbital: {
+      kicker: 'EXPERIMENT 01 · CELESTIAL MECHANICS',
+      title: 'Restricted Three-Body Playground',
+      equation: 'r̈ = −G M₁ r₁/|r₁|³ − G M₂ r₂/|r₂|³',
+      description: 'Symplectic Velocity-Verlet integrator solving planar 3-body gravitational dynamics. Click anywhere on the canvas to launch the test satellite from a new position.',
+      labels: ['Time (t)', 'Kinetic (T)', 'Potential (V)', 'Total Energy (E)'],
+      params: {
+        mu: { label: 'Mass Ratio μ = M₂/(M₁+M₂)', min: 0.05, max: 0.5, step: 0.01, val: 0.20 },
+        v0: { label: 'Initial Tangential Speed v₀', min: 0.4, max: 2.2, step: 0.05, val: 1.15 },
+        dt: { label: 'Integration Step Δt', min: 0.005, max: 0.04, step: 0.005, val: 0.015 }
+      },
+      presets: [
+        { name: 'Figure-8 / Binary Transfer', vals: { mu: 0.25, v0: 1.05, dt: 0.015 } },
+        { name: 'Lagrange Orbit', vals: { mu: 0.12, v0: 1.30, dt: 0.015 } },
+        { name: 'Chaotic Slingshot', vals: { mu: 0.40, v0: 0.85, dt: 0.02 } }
+      ]
+    },
+    pendulum: {
+      kicker: 'EXPERIMENT 02 · NONLINEAR DYNAMICS',
+      title: 'Damped Driven Pendulum & Phase Portrait',
+      equation: 'θ̈ + γ θ̇ + (g/L) sin(θ) = A cos(ω_d t)',
+      description: '4th-Order Runge-Kutta (RK4) solver showing real-time physical pendulum motion on the left and its (θ, ω) phase-space attractor on the right.',
+      labels: ['Time (t)', 'Angle θ (rad)', 'Angular Vel ω', 'Mech Energy (E)'],
+      params: {
+        g_L: { label: 'Natural Freq² (g/L)', min: 2.0, max: 20.0, step: 0.5, val: 9.8 },
+        gamma: { label: 'Damping Coefficient γ', min: 0.0, max: 1.5, step: 0.05, val: 0.15 },
+        driveA: { label: 'Driving Torque Amplitude A', min: 0.0, max: 15.0, step: 0.5, val: 4.5 }
+      },
+      presets: [
+        { name: 'Undamped Harmonic', vals: { g_L: 9.8, gamma: 0.0, driveA: 0.0 } },
+        { name: 'Damped Spiral Attractor', vals: { g_L: 9.8, gamma: 0.35, driveA: 0.0 } },
+        { name: 'Driven Limit Cycle / Chaos', vals: { g_L: 9.8, gamma: 0.2, driveA: 11.5 } }
+      ]
+    },
+    quantum: {
+      kicker: 'EXPERIMENT 03 · QUANTUM MECHANICS',
+      title: 'Gaussian Wavepacket Barrier Tunneling',
+      equation: 'iℏ ∂ψ/∂t = [−(ℏ²/2m) ∂²/∂x² + V(x)] ψ(x,t)',
+      description: 'Visualizes real Re(ψ), imaginary Im(ψ), and probability density |ψ(x,t)|² scattering across a potential energy barrier V₀.',
+      labels: ['Time (t)', 'Incident Energy E', 'Barrier V₀', 'Transmission T'],
+      params: {
+        k0: { label: 'Wavepacket Momentum k₀', min: 2.0, max: 8.0, step: 0.2, val: 4.5 },
+        v0: { label: 'Barrier Height V₀ (eV)', min: 1.0, max: 10.0, step: 0.5, val: 5.0 },
+        width: { label: 'Barrier Width a (nm)', min: 0.1, max: 1.2, step: 0.05, val: 0.35 }
+      },
+      presets: [
+        { name: 'Quantum Tunneling (E < V₀)', vals: { k0: 4.0, v0: 6.0, width: 0.30 } },
+        { name: 'Over-Barrier Scattering (E > V₀)', vals: { k0: 6.5, v0: 3.0, width: 0.40 } },
+        { name: 'Thick Opaque Barrier', vals: { k0: 3.5, v0: 8.0, width: 0.90 } }
+      ]
+    },
+    optics: {
+      kicker: 'EXPERIMENT 04 · PHYSICAL OPTICS',
+      title: "Young's Double-Slit Wave Interference",
+      equation: 'I(y) = I₀ cos²(π d y / λ L) · sinc²(π a y / λ L)',
+      description: '2D coherent wavefront interference pattern and screen intensity profile I(y) with finite slit-width diffraction envelope.',
+      labels: ['Wavelength λ', 'Fringe Spacing Δy', 'Central Max I₀', 'Diffraction Env'],
+      params: {
+        wavelength: { label: 'Laser Wavelength λ (nm)', min: 400, max: 700, step: 10, val: 532 },
+        slitSep: { label: 'Slit Separation d (mm)', min: 0.10, max: 0.80, step: 0.02, val: 0.28 },
+        slitWidth: { label: 'Single Slit Width a (mm)', min: 0.02, max: 0.20, step: 0.01, val: 0.05 }
+      },
+      presets: [
+        { name: 'Green Nd:YAG (532 nm)', vals: { wavelength: 532, slitSep: 0.28, slitWidth: 0.05 } },
+        { name: 'He-Ne Red Laser (633 nm)', vals: { wavelength: 633, slitSep: 0.22, slitWidth: 0.04 } },
+        { name: 'Violet Diode (405 nm, Wide d)', vals: { wavelength: 405, slitSep: 0.55, slitWidth: 0.08 } }
+      ]
+    }
+  };
+
+  // Simulation dynamical state
+  let orbState = { x: 0, y: -110, vx: 1.15, vy: 0, trail: [] };
+  let pendState = { theta: 1.8, omega: 0.0, trail: [] };
+  let qmPhase = 0;
+
+  function resetCurrentExperiment() {
+    simTime = 0;
+    telemetryLog = [];
+    if (activeExp === 'orbital') {
+      const v0 = expConfig.orbital.params.v0.val;
+      orbState = { x: 0, y: -115, vx: v0 * 95, vy: 0, trail: [] };
+    } else if (activeExp === 'pendulum') {
+      pendState = { theta: 1.75, omega: 0.0, trail: [] };
+    } else if (activeExp === 'quantum') {
+      qmPhase = 0;
+    }
+  }
+
+  function renderControlsForExperiment() {
+    const cfg = expConfig[activeExp];
+    if (expKicker) expKicker.textContent = cfg.kicker;
+    if (expTitle) expTitle.textContent = cfg.title;
+    if (eqDisplay) eqDisplay.textContent = cfg.equation;
+    if (messageP) messageP.textContent = cfg.description;
+
+    if (teleL1) teleL1.textContent = cfg.labels[0];
+    if (teleL2) teleL2.textContent = cfg.labels[1];
+    if (teleL3) teleL3.textContent = cfg.labels[2];
+    if (teleL4) teleL4.textContent = cfg.labels[3];
+
+    if (slidersBox) {
+      slidersBox.innerHTML = Object.entries(cfg.params).map(([key, p]) => `
+        <div class="field" style="margin:0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label for="slider_${key}" style="font-size:12px; margin:0;">${escapeHTML(p.label)}</label>
+            <span id="slider_val_${key}" style="font-family:var(--font-mono); font-size:12px; color:var(--cyan); font-weight:700;">${p.val}</span>
+          </div>
+          <input id="slider_${key}" data-key="${key}" type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" style="width:100%; accent-color:var(--cyan); cursor:pointer;">
+        </div>
+      `).join('');
+
+      slidersBox.querySelectorAll('input[type="range"]').forEach(sl => {
+        sl.addEventListener('input', () => {
+          const k = sl.dataset.key;
+          const v = parseFloat(sl.value);
+          cfg.params[k].val = v;
+          const valSpan = qs(`#slider_val_${k}`);
+          if (valSpan) valSpan.textContent = v;
+          if (activeExp === 'orbital' && k === 'v0' && simTime < 0.1) {
+            orbState.vx = v * 95;
+          }
+        });
+      });
+    }
+
+    if (presetsBox) {
+      presetsBox.innerHTML = cfg.presets.map((pr, idx) => `
+        <button type="button" class="mini-btn lab-preset-btn" data-idx="${idx}">${escapeHTML(pr.name)}</button>
+      `).join('');
+
+      presetsBox.querySelectorAll('.lab-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pr = cfg.presets[parseInt(btn.dataset.idx, 10)];
+          if (!pr) return;
+          Object.entries(pr.vals).forEach(([k, v]) => {
+            if (cfg.params[k]) cfg.params[k].val = v;
+          });
+          renderControlsForExperiment();
+          resetCurrentExperiment();
+          showToast(`Loaded preset: ${pr.name}`, 'info', 1800);
+        });
+      });
+    }
+  }
+
+  // Click on canvas to interact
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    if (activeExp === 'orbital') {
+      orbState.x = clickX - cx;
+      orbState.y = clickY - cy;
+      const v0 = expConfig.orbital.params.v0.val * 95;
+      const angle = Math.atan2(orbState.y, orbState.x) + Math.PI / 2;
+      orbState.vx = v0 * Math.cos(angle);
+      orbState.vy = v0 * Math.sin(angle);
+      orbState.trail = [];
+      showToast('Satellite repositioned at clicked coordinates.', 'info', 1500);
+    } else if (activeExp === 'pendulum') {
+      const pivotX = canvas.width * 0.28;
+      const pivotY = canvas.height * 0.42;
+      pendState.theta = Math.atan2(clickX - pivotX, clickY - pivotY);
+      pendState.omega = 0;
+      pendState.trail = [];
+    } else if (activeExp === 'quantum') {
+      qmPhase = 0;
+    }
+  });
+
+  // Step Physics & Render Frame
+  function stepAndRender(advancePhysics = true) {
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Subtle coordinate grid background
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.07)';
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx < w; gx += 40) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+    }
+    for (let gy = 0; gy < h; gy += 40) {
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+    }
+
+    if (activeExp === 'orbital') {
+      const p = expConfig.orbital.params;
+      const mu = p.mu.val;
+      const dt = p.dt.val;
+      const GMTotal = 1800000;
+      const GM1 = GMTotal * (1 - mu);
+      const GM2 = GMTotal * mu;
+      const sep = 150;
+      // Binary primaries slowly rotating or fixed in synodic frame
+      const x1 = -mu * sep, y1 = 0;
+      const x2 = (1 - mu) * sep, y2 = 0;
+
+      function accel(x, y) {
+        const dx1 = x - x1, dy1 = y - y1;
+        const r1 = Math.sqrt(dx1 * dx1 + dy1 * dy1 + 144); // softened potential
+        const dx2 = x - x2, dy2 = y - y2;
+        const r2 = Math.sqrt(dx2 * dx2 + dy2 * dy2 + 144);
+        const ax = -(GM1 * dx1) / (r1 * r1 * r1) - (GM2 * dx2) / (r2 * r2 * r2);
+        const ay = -(GM1 * dy1) / (r1 * r1 * r1) - (GM2 * dy2) / (r2 * r2 * r2);
+        return { ax, ay, r1, r2 };
+      }
+
+      if (advancePhysics) {
+        for (let sub = 0; sub < 4; sub++) {
+          const a0 = accel(orbState.x, orbState.y);
+          const nx = orbState.x + orbState.vx * dt + 0.5 * a0.ax * dt * dt;
+          const ny = orbState.y + orbState.vy * dt + 0.5 * a0.ay * dt * dt;
+          const a1 = accel(nx, ny);
+          orbState.vx += 0.5 * (a0.ax + a1.ax) * dt;
+          orbState.vy += 0.5 * (a0.ay + a1.ay) * dt;
+          orbState.x = nx;
+          orbState.y = ny;
+        }
+        simTime += dt * 4;
+        orbState.trail.push({ x: orbState.x, y: orbState.y });
+        if (orbState.trail.length > 420) orbState.trail.shift();
+      }
+
+      const cx = w / 2, cy = h / 2;
+      // Draw trajectory trail
+      if (orbState.trail.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < orbState.trail.length; i++) {
+          const pt = orbState.trail[i];
+          if (i === 0) ctx.moveTo(cx + pt.x, cy + pt.y);
+          else ctx.lineTo(cx + pt.x, cy + pt.y);
+        }
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Draw Primary M1 & Secondary M2
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(cx + x1, cy + y1, 14 * (1 - mu * 0.4), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#a78bfa';
+      ctx.beginPath();
+      ctx.arc(cx + x2, cy + y2, 8 + mu * 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw Test Satellite
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(cx + orbState.x, cy + orbState.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      const cur = accel(orbState.x, orbState.y);
+      const T = 0.5 * (orbState.vx * orbState.vx + orbState.vy * orbState.vy) / 1000;
+      const V = -(GM1 / cur.r1 + GM2 / cur.r2) / 1000;
+      const E = T + V;
+
+      if (teleV1) teleV1.textContent = simTime.toFixed(2) + ' s';
+      if (teleV2) teleV2.textContent = T.toFixed(2);
+      if (teleV3) teleV3.textContent = V.toFixed(2);
+      if (teleV4) teleV4.textContent = E.toFixed(2);
+
+      if (advancePhysics && telemetryLog.length < 500) {
+        telemetryLog.push({ t: simTime.toFixed(3), m1: T.toFixed(4), m2: V.toFixed(4), m3: E.toFixed(4) });
+      }
+
+    } else if (activeExp === 'pendulum') {
+      const p = expConfig.pendulum.params;
+      const g_L = p.g_L.val;
+      const gamma = p.gamma.val;
+      const driveA = p.driveA.val;
+      const wd = 2.0;
+      const dt = 0.016;
+
+      function deriv(th, om, t) {
+        return -gamma * om - g_L * Math.sin(th) + driveA * Math.cos(wd * t);
+      }
+
+      if (advancePhysics) {
+        const th = pendState.theta, om = pendState.omega, t = simTime;
+        const k1_th = om;
+        const k1_om = deriv(th, om, t);
+        const k2_th = om + 0.5 * dt * k1_om;
+        const k2_om = deriv(th + 0.5 * dt * k1_th, om + 0.5 * dt * k1_om, t + 0.5 * dt);
+        const k3_th = om + 0.5 * dt * k2_om;
+        const k3_om = deriv(th + 0.5 * dt * k2_th, om + 0.5 * dt * k2_om, t + 0.5 * dt);
+        const k4_th = om + dt * k3_om;
+        const k4_om = deriv(th + dt * k3_th, om + dt * k3_om, t + dt);
+
+        pendState.theta += (dt / 6) * (k1_th + 2 * k2_th + 2 * k3_th + k4_th);
+        pendState.omega += (dt / 6) * (k1_om + 2 * k2_om + 2 * k3_om + k4_om);
+        // Wrap theta to [-pi, pi]
+        if (pendState.theta > Math.PI) pendState.theta -= 2 * Math.PI;
+        if (pendState.theta < -Math.PI) pendState.theta += 2 * Math.PI;
+
+        simTime += dt;
+        pendState.trail.push({ th: pendState.theta, om: pendState.omega });
+        if (pendState.trail.length > 380) pendState.trail.shift();
+      }
+
+      // Left half: Physical Pendulum
+      const pivotX = w * 0.27, pivotY = h * 0.42;
+      const rodLen = Math.min(w, h) * 0.34;
+      const bobX = pivotX + rodLen * Math.sin(pendState.theta);
+      const bobY = pivotY + rodLen * Math.cos(pendState.theta);
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pivotX, pivotY);
+      ctx.lineTo(bobX, bobY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(pivotX, pivotY, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(bobX, bobY, 13, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right half: Phase Space (theta vs omega)
+      const phaseCx = w * 0.72, phaseCy = h * 0.5;
+      const scaleTh = (w * 0.20) / Math.PI;
+      const scaleOm = (h * 0.35) / 8.0;
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(phaseCx - w * 0.22, phaseCy);
+      ctx.lineTo(phaseCx + w * 0.22, phaseCy);
+      ctx.moveTo(phaseCx, phaseCy - h * 0.4);
+      ctx.lineTo(phaseCx, phaseCy + h * 0.4);
+      ctx.stroke();
+
+      if (pendState.trail.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < pendState.trail.length; i++) {
+          const pt = pendState.trail[i];
+          const px = phaseCx + pt.th * scaleTh;
+          const py = phaseCy - pt.om * scaleOm;
+          if (i === 0 || Math.abs(pt.th - pendState.trail[i - 1].th) > 3.0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+      }
+
+      const E = 0.5 * pendState.omega * pendState.omega + g_L * (1 - Math.cos(pendState.theta));
+      if (teleV1) teleV1.textContent = simTime.toFixed(2) + ' s';
+      if (teleV2) teleV2.textContent = pendState.theta.toFixed(3);
+      if (teleV3) teleV3.textContent = pendState.omega.toFixed(3);
+      if (teleV4) teleV4.textContent = E.toFixed(2) + ' J';
+
+      if (advancePhysics && telemetryLog.length < 500) {
+        telemetryLog.push({ t: simTime.toFixed(3), m1: pendState.theta.toFixed(4), m2: pendState.omega.toFixed(4), m3: E.toFixed(4) });
+      }
+
+    } else if (activeExp === 'quantum') {
+      const p = expConfig.quantum.params;
+      const k0 = p.k0.val;
+      const V0 = p.v0.val;
+      const widthNm = p.width.val;
+      const E = 0.35 * k0 * k0; // scaled eV
+      const T_prob = E >= V0
+        ? 1 / (1 + (V0 * V0) / (4 * E * (E - V0 + 0.1)) * Math.pow(Math.sin(2 * widthNm * Math.sqrt(Math.max(0.1, E - V0))), 2))
+        : Math.exp(-2 * widthNm * Math.sqrt(Math.max(0.05, V0 - E)));
+      const R_prob = Math.max(0, 1 - T_prob);
+
+      if (advancePhysics) {
+        qmPhase += 0.045;
+        simTime += 0.02;
+      }
+
+      const midY = h * 0.58;
+      const barX = w * 0.48;
+      const barW = Math.max(14, widthNm * 75);
+      const barH = Math.min(h * 0.7, V0 * 24);
+
+      // Draw Potential Barrier V0
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.18)';
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(barX, midY - barH, barW, barH);
+      ctx.strokeRect(barX, midY - barH, barW, barH);
+
+      // Draw Wavepacket |psi(x,t)|^2 and Re(psi)
+      const packetCenter = ((qmPhase * 42) % (w * 0.85)) - w * 0.15;
+      ctx.beginPath();
+      for (let x = 0; x < w; x += 2) {
+        let env = 0;
+        if (x < barX) {
+          const dInc = (x - Math.min(barX - 45, packetCenter)) / 52;
+          const inc = Math.exp(-dInc * dInc);
+          const refl = packetCenter > barX - 60 ? Math.sqrt(R_prob) * Math.exp(-Math.pow((x - (2 * barX - packetCenter)) / 52, 2)) : 0;
+          env = inc + refl * Math.cos(k0 * 0.18 * (x - barX));
+        } else if (x <= barX + barW) {
+          const decay = Math.exp(-((x - barX) / barW) * 1.6);
+          env = 0.65 * decay;
+        } else {
+          const dTrans = (x - Math.max(barX + barW + 30, packetCenter)) / 55;
+          env = Math.sqrt(T_prob) * Math.exp(-dTrans * dTrans);
+        }
+        const rePsi = env * Math.cos(0.14 * k0 * x - qmPhase * 3.2);
+        const py = midY - rePsi * 75;
+        if (x === 0) ctx.moveTo(x, py);
+        else ctx.lineTo(x, py);
+      }
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Probability density envelope |psi|^2
+      ctx.beginPath();
+      for (let x = 0; x < w; x += 3) {
+        let prob = 0;
+        if (x < barX) {
+          const dInc = (x - Math.min(barX - 40, packetCenter)) / 52;
+          prob = Math.exp(-2 * dInc * dInc);
+        } else if (x <= barX + barW) {
+          prob = 0.45 * Math.exp(-2.2 * ((x - barX) / barW));
+        } else {
+          const dTrans = (x - Math.max(barX + barW + 30, packetCenter)) / 55;
+          prob = T_prob * Math.exp(-2 * dTrans * dTrans);
+        }
+        const py = midY - prob * 95;
+        if (x === 0) ctx.moveTo(x, py);
+        else ctx.lineTo(x, py);
+      }
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      if (teleV1) teleV1.textContent = simTime.toFixed(2) + ' fs';
+      if (teleV2) teleV2.textContent = E.toFixed(2) + ' eV';
+      if (teleV3) teleV3.textContent = V0.toFixed(2) + ' eV';
+      if (teleV4) teleV4.textContent = (T_prob * 100).toFixed(1) + '%';
+
+    } else if (activeExp === 'optics') {
+      const p = expConfig.optics.params;
+      const lam = p.wavelength.val;
+      const d = p.slitSep.val;
+      const a = p.slitWidth.val;
+      if (advancePhysics) simTime += 0.04;
+
+      // Convert wavelength nm to RGB color
+      let r = 56, g = 189, b = 248;
+      if (lam < 450) { r = 167; g = 139; b = 250; }
+      else if (lam < 510) { r = 56; g = 189; b = 248; }
+      else if (lam < 565) { r = 52; g = 211; b = 153; }
+      else if (lam < 600) { r = 251; g = 191; b = 36; }
+      else { r = 248; g = 113; b = 113; }
+
+      const slitX = w * 0.14;
+      const screenX = w * 0.68;
+      const cy = h / 2;
+      const slitOffset = Math.max(18, d * 110);
+
+      // Draw Slit Barrier
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(slitX, 0); ctx.lineTo(slitX, cy - slitOffset - 8);
+      ctx.moveTo(slitX, cy - slitOffset + 8); ctx.lineTo(slitX, cy + slitOffset - 8);
+      ctx.moveTo(slitX, cy + slitOffset + 8); ctx.lineTo(slitX, h);
+      ctx.stroke();
+
+      // Draw Huygens cylindrical wavefronts from both slits
+      const numWaves = 9;
+      for (let i = 0; i < numWaves; i++) {
+        const rad = ((simTime * 35 + i * (lam * 0.07)) % (screenX - slitX));
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.28)`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(slitX, cy - slitOffset, rad, -Math.PI / 2.2, Math.PI / 2.2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(slitX, cy + slitOffset, rad, -Math.PI / 2.2, Math.PI / 2.2);
+        ctx.stroke();
+      }
+
+      // Draw Detection Screen & Intensity Curve I(y)
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(screenX, 20);
+      ctx.lineTo(screenX, h - 20);
+      ctx.stroke();
+
+      ctx.beginPath();
+      for (let y = 20; y < h - 20; y += 2) {
+        const dy = (y - cy) / (h * 0.42);
+        const beta = (Math.PI * a * dy * 14) / (lam * 1e-3);
+        const alpha = (Math.PI * d * dy * 14) / (lam * 1e-3);
+        const sinc = Math.abs(beta) < 1e-5 ? 1 : Math.sin(beta) / beta;
+        const intensity = Math.cos(alpha) * Math.cos(alpha) * sinc * sinc;
+
+        // Fringe band on screen
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${intensity * 0.85})`;
+        ctx.fillRect(screenX - 10, y, 10, 2);
+
+        const px = screenX + 12 + intensity * (w * 0.25);
+        if (y === 20) ctx.moveTo(px, y);
+        else ctx.lineTo(px, y);
+      }
+      ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      const fringeMm = ((lam * 1e-6) * 1500) / d;
+      if (teleV1) teleV1.textContent = `${lam} nm`;
+      if (teleV2) teleV2.textContent = `${fringeMm.toFixed(2)} mm`;
+      if (teleV3) teleV3.textContent = '1.00 I₀';
+      if (teleV4) teleV4.textContent = `a = ${a} mm`;
+    }
+  }
+
+  function loop() {
+    if (!canvas.isConnected) return;
+    if (isRunning) {
+      stepAndRender(true);
+    }
+    animId = requestAnimationFrame(loop);
+  }
+
+  // Wire Experiment Tabs
+  expTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      expTabs.forEach(t => {
+        t.classList.remove('active', 'primary');
+        t.classList.add('ghost');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.remove('ghost');
+      tab.classList.add('active', 'primary');
+      tab.setAttribute('aria-selected', 'true');
+      activeExp = tab.dataset.exp || 'orbital';
+      renderControlsForExperiment();
+      resetCurrentExperiment();
+      stepAndRender(false);
+    });
+  });
 
   if (runBtn) {
-    runBtn.onclick = () => {
+    runBtn.addEventListener('click', () => {
+      isRunning = !isRunning;
+      runBtn.textContent = isRunning ? '⏸ Pause' : '▶ Resume';
       if (stateSpan) {
-        stateSpan.textContent = 'SIMULATING';
+        stateSpan.textContent = isRunning ? 'RUNNING' : 'PAUSED';
+        stateSpan.style.borderColor = isRunning ? 'var(--green)' : 'var(--gold)';
+        stateSpan.style.color = isRunning ? 'var(--green)' : 'var(--gold)';
+      }
+    });
+  }
+
+  if (stepBtn) {
+    stepBtn.addEventListener('click', () => {
+      isRunning = false;
+      if (runBtn) runBtn.textContent = '▶ Resume';
+      if (stateSpan) {
+        stateSpan.textContent = 'STEPPED';
+        stateSpan.style.borderColor = 'var(--cyan)';
         stateSpan.style.color = 'var(--cyan)';
       }
-      if (messageP) {
-        messageP.innerHTML = renderNewtonsCradle('Calculating symplectic numerical integration...') +
-          `<p style="text-align:center; color:var(--muted); font-size:12.5px; margin-top:12px;">Solving restricted three-body differential equations.</p>`;
-      }
-      showToast('Numerical integration running.', 'info', 2000);
-    };
+      stepAndRender(true);
+    });
   }
 
   if (resetBtn) {
-    resetBtn.onclick = () => {
-      if (stateSpan) {
-        stateSpan.textContent = 'READY';
-        stateSpan.style.color = '';
-      }
-      if (messageP) {
-        messageP.textContent = 'The simulation is ready.';
-      }
-      showToast('Simulation reset to initial conditions.', 'info', 2000);
-    };
+    resetBtn.addEventListener('click', () => {
+      resetCurrentExperiment();
+      stepAndRender(false);
+      showToast('Simulation reset to initial conditions.', 'info', 1800);
+    });
   }
+
+  if (clearTrailBtn) {
+    clearTrailBtn.addEventListener('click', () => {
+      orbState.trail = [];
+      pendState.trail = [];
+      stepAndRender(false);
+      showToast('Phase trajectory trail cleared.', 'info', 1500);
+    });
+  }
+
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener('click', () => {
+      const cfg = expConfig[activeExp];
+      const header = `${cfg.labels[0]},${cfg.labels[1]},${cfg.labels[2]},${cfg.labels[3]}\n`;
+      const rows = (telemetryLog.length ? telemetryLog : [{ t: '0.000', m1: '0', m2: '0', m3: '0' }])
+        .map(r => `${r.t},${r.m1},${r.m2},${r.m3}`).join('\n');
+      const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pups-lab-${activeExp}-telemetry.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Simulation telemetry exported as CSV.', 'success');
+    });
+  }
+
+  renderControlsForExperiment();
+  resetCurrentExperiment();
+  if (animId) cancelAnimationFrame(animId);
+  loop();
 }
 
 // ── Contact Page Initializer ────────────────────────────────
 function initContact() {
   initNav();
-  const form = qs('#contactForm');
-  const banner = qs('#contactStatusBanner');
-  if (!form) return;
-
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    const name = qs('#contactName')?.value.trim();
-    const email = qs('#contactEmail')?.value.trim();
-    const subject = qs('#contactSubject')?.value.trim();
-    const message = qs('#contactMessage')?.value.trim();
-
-    if (!name || !email || !subject || !message) {
-      if (banner) {
-        banner.className = 'feedback-banner error show';
-        banner.innerHTML = `Please fill out all required fields.`;
-      }
-      showToast('Please fill out all required fields.', 'error');
-      return;
-    }
-
-    if (banner) {
-      banner.className = 'feedback-banner success show';
-      banner.innerHTML = `✓ Thank you, <strong>${escapeHTML(name)}</strong>! Your enquiry has been received and routed to society communications.`;
-      setTimeout(() => { banner.classList.remove('show'); }, 6000);
-    }
-    showToast(`Enquiry sent successfully. Thank you, ${name}!`, 'success');
-    form.reset();
-  };
 }
 
 // ============================================================
@@ -3423,7 +5404,7 @@ function renderMemberEvents() {
         <strong>${escapeHTML(ev.title)}</strong>
         <p>${formatDate(ev.date)} · <span class="role-badge" style="padding:2px 6px;">${escapeHTML(ev.type)}</span></p>
         <p>${escapeHTML(ev.description)}</p>
-        ${ev.regLink ? `<p style="font-size:11px; margin-top:4px;"><a href="${escapeHTML(ev.regLink)}" target="_blank" rel="noopener noreferrer" style="color:var(--cyan); text-decoration:underline;">Registration&nbsp;--&gt; (${escapeHTML(ev.regLink)})</a></p>` : ''}
+        ${ev.regLink && sanitizeUrl(ev.regLink) !== '#' ? `<p style="font-size:11px; margin-top:4px;"><a href="${sanitizeUrl(ev.regLink)}" target="_blank" rel="noopener noreferrer" style="color:var(--cyan); text-decoration:underline;">Registration&nbsp;--&gt; (${escapeHTML(ev.regLink)})</a></p>` : ''}
       </div>
       <button class="mini-btn danger-btn delete-event-btn" data-id="${ev.id}" type="button">Delete</button>
     </div>
@@ -3458,7 +5439,7 @@ function renderMemberColloquia() {
         <strong>${escapeHTML(co.title)}</strong>
         <p>${escapeHTML(co.speaker)} · ${formatDate(co.date)} · <span class="role-badge" style="padding:2px 6px;">${escapeHTML(co.field)}</span></p>
         <p>${escapeHTML(co.description)}</p>
-        ${co.youtubeLink ? `<p style="font-size:11px; margin-top:4px;"><a href="${escapeHTML(co.youtubeLink)}" target="_blank" rel="noopener noreferrer" style="color:#f87171; text-decoration:underline;">Watch here&nbsp;--&gt; (${escapeHTML(co.youtubeLink)})</a></p>` : ''}
+        ${co.youtubeLink && sanitizeUrl(co.youtubeLink) !== '#' ? `<p style="font-size:11px; margin-top:4px;"><a href="${sanitizeUrl(co.youtubeLink)}" target="_blank" rel="noopener noreferrer" style="color:#f87171; text-decoration:underline;">Watch here&nbsp;--&gt; (${escapeHTML(co.youtubeLink)})</a></p>` : ''}
       </div>
       <button class="mini-btn danger-btn delete-colloquium-btn" data-id="${co.id}" type="button">Delete</button>
     </div>
@@ -3505,9 +5486,9 @@ function initEvents() {
         <div class="meta">${escapeHTML(ev.type)} · ${formatDate(ev.date)}</div>
         <h3>${escapeHTML(ev.title)}</h3>
         <p>${escapeHTML(ev.description)}</p>
-        ${ev.regLink ? `
+        ${ev.regLink && sanitizeUrl(ev.regLink) !== '#' ? `
           <div style="margin-top:16px;">
-            <a href="${escapeHTML(ev.regLink)}" target="_blank" rel="noopener noreferrer" class="action-link-btn register">
+            <a href="${sanitizeUrl(ev.regLink)}" target="_blank" rel="noopener noreferrer" class="action-link-btn register">
               Registration&nbsp;--&gt;
             </a>
           </div>` : ''}
@@ -3529,6 +5510,21 @@ function initColloquia() {
   const searchInput = qs('#colloquiaSearch');
   const fieldSelect = qs('#colloquiaField');
   if (!grid) return;
+
+  // Dynamically populate any custom fields added by Members
+  if (fieldSelect) {
+    const db = loadDB();
+    const existingOptions = new Set(Array.from(fieldSelect.options).map(o => o.value));
+    (db.colloquia || []).forEach(co => {
+      if (co.field && !existingOptions.has(co.field)) {
+        existingOptions.add(co.field);
+        const opt = document.createElement('option');
+        opt.value = co.field;
+        opt.textContent = co.field;
+        fieldSelect.appendChild(opt);
+      }
+    });
+  }
 
   function render() {
     const db = loadDB();
@@ -3555,9 +5551,9 @@ function initColloquia() {
         <h3>${escapeHTML(co.title)}</h3>
         <p style="color:var(--gold); font-size:13px; margin:4px 0 8px;">Speaker: ${escapeHTML(co.speaker)}</p>
         <p>${escapeHTML(co.description)}</p>
-        ${co.youtubeLink ? `
+        ${co.youtubeLink && sanitizeUrl(co.youtubeLink) !== '#' ? `
           <div style="margin-top:16px;">
-            <a href="${escapeHTML(co.youtubeLink)}" target="_blank" rel="noopener noreferrer" class="action-link-btn youtube">
+            <a href="${sanitizeUrl(co.youtubeLink)}" target="_blank" rel="noopener noreferrer" class="action-link-btn youtube">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="margin-right:2px;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
               Watch here&nbsp;--&gt;
             </a>
@@ -4191,6 +6187,25 @@ function initHome() {
     });
   });
 
+  const dbForStats = loadDB();
+  if (dbForStats && dbForStats.stats) {
+    const pubEl = qs('#homeStatPublications');
+    const attEl = qs('#homeStatAttendance');
+    const resEl = qs('#homeStatResearchers');
+    const prjEl = qs('#homeStatProjects');
+    if (pubEl) pubEl.textContent = String(dbForStats.stats.publications ?? 142).padStart(2, '0');
+    if (attEl) attEl.textContent = (dbForStats.stats.attendance ?? 94) + '%';
+    if (resEl) resEl.textContent = String(dbForStats.stats.researchers ?? 86).padStart(2, '0');
+    if (prjEl) prjEl.textContent = String(dbForStats.stats.projects ?? 12).padStart(2, '0');
+  }
+
+  const replayBtn = qs('#replayScrollIntroBtn');
+  if (replayBtn) {
+    replayBtn.addEventListener('click', () => {
+      if (typeof window.replayScrollIntro === 'function') window.replayScrollIntro();
+    });
+  }
+
   const homeEvents = qs('#homeEvents');
   if (homeEvents) {
     const db = loadDB();
@@ -4232,7 +6247,7 @@ function initRegister() {
       wrap.style.gap = '8px';
       wrap.innerHTML = `
         <a class="btn primary" href="${portalHref}" style="font-size:12px; padding:8px 14px;">${portalLabel} →</a>
-        <a class="btn ghost" href="javascript:logout();" style="font-size:12px; padding:8px 14px;">Logout</a>
+        <a class="btn ghost" href="#logout" data-action="logout" style="font-size:12px; padding:8px 14px;">Logout</a>
       `;
       tools.insertBefore(wrap, tools.firstChild);
     }
@@ -4588,6 +6603,24 @@ function initRegister() {
 //  PAGE DISPATCHER
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Delegated logout click handler (replaces inline javascript:logout() URIs)
+  document.addEventListener('click', (e) => {
+    const logoutEl = e.target.closest('[data-action="logout"], #logoutNavBtn');
+    if (logoutEl) {
+      e.preventDefault();
+      logout();
+    }
+  });
+
+  // Safe image error fallback listener (replaces inline onerror attributes)
+  document.addEventListener('error', (e) => {
+    const t = e.target;
+    if (t && t.tagName === 'IMG' && (t.classList.contains('team-avatar-img') || t.classList.contains('team-avatar-img-sm'))) {
+      t.style.display = 'none';
+      if (t.nextElementSibling) t.nextElementSibling.style.display = 'flex';
+    }
+  }, true);
+
   initMoodSwitcher();
   const page = currentPage();
 

@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Control Centre | Presidency University Physics Society</title>
   <link rel="icon" type="image/png" href="pups-logo.png">
@@ -11,7 +13,9 @@
     (function(){
       try {
         var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
-        if (!s) { location.replace('login.html'); }
+        if (!s) { location.replace('login.html'); return; }
+        var parsed = JSON.parse(s);
+        if (!parsed || !parsed.id) { location.replace('login.html'); }
       } catch(e) {}
     })();
   </script>
@@ -43,7 +47,7 @@
       <a href="colloquium.html">Colloquium</a>
       <a href="member.html">Member Portal</a>
       <a href="student.html">Student Portal</a>
-      <a class="login-link" href="javascript:logout()" aria-label="Log out of administrator session">Logout</a>
+      <a class="login-link" href="#logout" data-action="logout" aria-label="Log out of administrator session">Logout</a>
     </nav>
   </header>
 
@@ -264,8 +268,8 @@
 
           <div class="field" style="margin-bottom:20px;">
             <label for="sessionHours">Maximum Session Expiration (Hours)</label>
-            <input id="sessionHours" type="number" min="1" max="72" value="24" required>
-            <small style="color:var(--muted); font-size:11px; margin-top:4px;">Sessions exceeding this lifetime are forcibly expired and redirected to login.</small>
+            <input id="sessionHours" type="number" min="1" max="24" value="24" required>
+            <small style="color:var(--muted); font-size:11px; margin-top:4px;">Sessions exceeding this lifetime (maximum 24 hours) are forcibly expired and redirected to login.</small>
           </div>
 
           <button class="btn primary" type="submit" style="width:100%;">Save Security Policy</button>
@@ -441,7 +445,7 @@
     <div>© 2026 Presidency University</div>
   </footer>
 
-  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.4/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

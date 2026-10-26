@@ -3344,3 +3344,44 @@ footer strong { color: var(--text); }
 
 
 
+
+/* ============================================================
+   STUDENT PORTAL, LAB WORKBENCH, FORMULAS & FORUM RESPONSIVE RULES
+   ============================================================ */
+@media (max-width: 960px) {
+  .lab-workbench-grid {
+    grid-template-columns: 1fr !important;
+  }
+  #labTelemetryGrid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .lab-canvas-container {
+    height: 300px !important;
+  }
+  #labTelemetryGrid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+.forum-room-card {
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.forum-room-card:hover,
+.forum-room-card.active {
+  border-color: var(--cyan) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(56, 189, 248, 0.15) !important;
+}
+
+.challenge-opt-btn {
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+
+.challenge-opt-btn:hover {
+  border-color: var(--cyan) !important;
+  transform: translateX(3px);
+}

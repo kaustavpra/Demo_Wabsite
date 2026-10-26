@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Math Formulas | Presidency University Physics Society</title>
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>Math &amp; Physics Formulas | Presidency University Physics Society</title>
   <link rel="icon" type="image/png" href="pups-logo.png">
   <link rel="apple-touch-icon" href="pups-logo.png">
   <link rel="stylesheet" href="styles.css">
@@ -11,8 +13,10 @@
     (function(){
       try {
         var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
-        if (!s) { location.replace('login.html'); }
-      } catch(e) {}
+        if (!s) { location.replace('login.html'); return; }
+        var parsed = JSON.parse(s);
+        if (!parsed || !parsed.id) { location.replace('login.html'); }
+      } catch(e) { location.replace('login.html'); }
     })();
   </script>
 </head>
@@ -27,61 +31,132 @@
       <img class="brand-mark" src="pups-logo.png" alt="Presidency University Physics Society Logo" width="44" height="44">
       <span>
         <strong>Presidency University Physics Society</strong>
-        <small>MATH GALLERY</small>
+        <small>MATH GALLERY &amp; SOLVERS</small>
       </span>
     </a>
     <div class="header-right-tools">
-      <button class="mood-toggle-btn" id="moodToggle" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
+      <button class="mood-toggle-btn" id="moodToggle" type="button" aria-label="Toggle website bright/dark mood" title="Switch theme mood">
         <span class="mood-icon" aria-hidden="true">🌙</span>
         <span class="mood-label">Dark</span>
       </button>
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
     </div>
     <nav id="mainNav" class="main-nav" aria-label="Main Navigation">
       <a href="student.html">Student Portal</a>
-      <a href="lab.html">Lab</a>
+      <a href="lab.html">Interactive Lab</a>
+      <a class="active" href="formulas.html">Formulas</a>
       <a href="forum.html">Forum</a>
-      <a class="login-link" href="javascript:logout()">Logout</a>
+      <a class="login-link" href="#logout" id="logoutNavBtn">Logout</a>
     </nav>
   </header>
 
   <!-- ========== MAIN CONTENT ========== -->
   <main id="mainContent" class="content-wrap">
-    <section class="page-hero">
-      <p class="eyebrow">MATHEMATICAL FRAMEWORKS</p>
-      <h1>Math formulas</h1>
-      <p>Core equations are available for reading and study. Nothing here is editable from a Student session.</p>
+    <section class="page-hero" style="padding-bottom:24px;">
+      <p class="eyebrow">MATHEMATICAL FRAMEWORKS &amp; LIVE CALCULATORS</p>
+      <h1>Physics Formula Compendium</h1>
+      <p>Explore 18 foundational equations across theoretical and experimental physics. Filter by discipline, copy LaTeX source code, bookmark key equations to your portal, or launch the interactive solver for any formula.</p>
     </section>
 
-    <div class="card-grid">
+    <!-- Search & Category Filter Toolbar -->
+    <div class="toolbar" role="search" aria-label="Search and filter physics formulas" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:20px;">
+      <input
+        class="search"
+        id="formulaSearchInput"
+        type="search"
+        placeholder="Search formulas by name, symbol, variable, or topic (e.g. Schrödinger, Lorentz, entropy)..."
+        aria-label="Search formulas"
+        style="flex:1; min-width:260px;">
+      <div style="display:flex; gap:6px; flex-wrap:wrap;" id="formulaCategoryPills" role="tablist" aria-label="Filter formulas by physics branch">
+        <button class="mini-btn primary-btn formula-cat-btn active" data-cat="all" type="button">All (18)</button>
+        <button class="mini-btn formula-cat-btn" data-cat="Mechanics" type="button">Mechanics</button>
+        <button class="mini-btn formula-cat-btn" data-cat="Quantum" type="button">Quantum</button>
+        <button class="mini-btn formula-cat-btn" data-cat="Electrodynamics" type="button">Electrodynamics</button>
+        <button class="mini-btn formula-cat-btn" data-cat="Statistical" type="button">Thermodynamics</button>
+        <button class="mini-btn formula-cat-btn" data-cat="Relativity" type="button">Relativity &amp; Astro</button>
+        <button class="mini-btn formula-cat-btn" data-cat="bookmarked" type="button">★ Bookmarked</button>
+      </div>
+    </div>
+
+    <!-- Interactive Formula Solver Drawer (Appears when a user clicks 'Solve / Calculate' on any card) -->
+    <section class="panel" id="formulaCalculatorPanel" style="margin-bottom:28px; border-color:var(--cyan); box-shadow:0 12px 36px rgba(56,189,248,0.12);" aria-labelledby="calcPanelHeading">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div>
+          <p class="kicker" style="color:var(--cyan);">INTERACTIVE NUMERICAL SOLVER</p>
+          <h2 id="calcPanelHeading" style="margin:4px 0 0;">Live Formula Evaluator</h2>
+        </div>
+        <select id="calcFormulaSelect" class="search" style="max-width:340px; font-size:13px;" aria-label="Select formula to calculate"></select>
+      </div>
+
+      <div class="two-col" style="margin-top:18px; align-items:center;">
+        <div id="calcInputsContainer" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;"></div>
+        <div class="equation-card" style="padding:18px; text-align:center;">
+          <span class="kicker" id="calcTargetLabel">COMPUTED OUTPUT</span>
+          <div class="equation" id="calcResultValue" style="font-size:26px; color:var(--cyan); margin:8px 0;">—</div>
+          <small id="calcFormulaPreview" style="font-family:var(--font-mono); color:var(--muted); display:block;"></small>
+        </div>
+      </div>
+    </section>
+
+    <!-- Formula Cards Grid -->
+    <div class="card-grid" id="formulasGrid" aria-live="polite">
       <article class="card">
         <div class="meta">Mechanics</div>
         <h3>Newton's second law</h3>
         <div class="equation" aria-label="Equation: F equals m a">F = ma</div>
-        <p>Relates force, mass, and acceleration.</p>
-      </article>
-
-      <article class="card">
-        <div class="meta">Quantum physics</div>
-        <h3>Schrödinger equation</h3>
-        <div class="equation" aria-label="Equation: i h-bar partial psi over partial t equals H-hat psi">iℏ ∂ψ/∂t = Ĥψ</div>
-        <p>Describes the time evolution of a quantum state.</p>
-      </article>
-
-      <article class="card">
-        <div class="meta">Statistics</div>
-        <h3>Boltzmann entropy</h3>
-        <div class="equation" aria-label="Equation: S equals k natural log of Omega">S = k ln Ω</div>
-        <p>Connects entropy with the number of accessible microstates.</p>
+        <p>Relates net force, inertial mass, and acceleration in classical dynamics.</p>
       </article>
     </div>
+
+    <!-- Fundamental Physical Constants Reference Table -->
+    <section class="panel" style="margin-top:36px;" aria-labelledby="constantsHeading">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+        <div>
+          <p class="kicker">CODATA RECOMMENDED VALUES</p>
+          <h2 id="constantsHeading" style="margin:4px 0 0;">Fundamental Physical Constants &amp; Unit Converter</h2>
+        </div>
+        <input id="constantSearchInput" type="search" class="search" placeholder="Filter constants..." style="max-width:220px; padding:7px 12px; font-size:12px;" aria-label="Filter physical constants">
+      </div>
+
+      <!-- Quick Unit Converter Bar -->
+      <div style="background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:18px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <strong style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; color:var(--cyan); letter-spacing:0.1em;">Quick Physics Unit Converter:</strong>
+        <input id="unitConvInput" type="number" value="1" step="any" style="width:110px; padding:6px 10px; font-size:13px;" aria-label="Value to convert">
+        <select id="unitConvType" style="padding:6px 10px; font-size:12.5px;" aria-label="Select conversion unit pair">
+          <option value="ev_to_j">Electron-Volts (eV) → Joules (J)</option>
+          <option value="j_to_ev">Joules (J) → Electron-Volts (eV)</option>
+          <option value="nm_to_ev">Photon Wavelength (nm) → Energy (eV)</option>
+          <option value="k_to_c">Kelvin (K) → Celsius (°C)</option>
+          <option value="au_to_m">Astronomical Units (AU) → Meters (m)</option>
+          <option value="pc_to_ly">Parsecs (pc) → Light-Years (ly)</option>
+        </select>
+        <span style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--gold);" id="unitConvOutput">= 1.602176634 × 10⁻¹⁹ J</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table" aria-label="CODATA Fundamental Physical Constants">
+          <thead>
+            <tr>
+              <th scope="col">Quantity</th>
+              <th scope="col">Symbol</th>
+              <th scope="col">SI Value</th>
+              <th scope="col">Units</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody id="constantsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ========== SITE FOOTER ========== -->
   <footer>
     <div>
       <strong>Presidency University Physics Society</strong>
-      <span>Mathematical gallery &amp; theoretical reference</span>
+      <span>Mathematical Gallery &amp; Theoretical Reference</span>
     </div>
     <div>© 2026 Presidency University</div>
   </footer>

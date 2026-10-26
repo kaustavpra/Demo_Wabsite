@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Member Dashboard | Presidency University Physics Society</title>
   <link rel="icon" type="image/png" href="pups-logo.png">
@@ -11,7 +13,9 @@
     (function(){
       try {
         var s = sessionStorage.getItem('pupsSession') || localStorage.getItem('pupsSession');
-        if (!s) { location.replace('login.html'); }
+        if (!s) { location.replace('login.html'); return; }
+        var parsed = JSON.parse(s);
+        if (!parsed || !parsed.id) { location.replace('login.html'); }
       } catch(e) {}
     })();
   </script>
@@ -41,7 +45,7 @@
       <a href="index.html">Public site</a>
       <a href="events.html">Events</a>
       <a href="colloquium.html">Colloquium</a>
-      <a class="login-link" href="javascript:logout()">Logout</a>
+      <a class="login-link" href="#logout" data-action="logout">Logout</a>
     </nav>
   </header>
 
@@ -173,7 +177,7 @@
     <div>© 2026 Presidency University</div>
   </footer>
 
-  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.4/dist/lottie-player.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
